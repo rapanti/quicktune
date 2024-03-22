@@ -1,0 +1,243 @@
+amp:
+- false
+auto_augment:
+  only_active_with:
+    data_augmentation:
+    - auto_augment
+  options:
+  - None
+  - v0
+  - original
+  type: categorical
+batch_size:
+  log: true
+  range:
+  - 2
+  - 512
+  type: int
+bss_reg:
+  log: true
+  range:
+  - 0
+  - 0.1
+  type: float
+clip_grad:
+  options:
+  - None
+  - 1
+  - 10
+  type: categorical
+cotuning_reg:
+  log: true
+  range:
+  - 0
+  - 4
+  type: float
+cutmix:
+  log: true
+  range:
+  - 0.  4.
+  type: float
+data_augmentation:
+  options:
+  - None
+  - trivial_augment
+  - random_augment
+  - auto_augment
+  type: categorical
+decay_epochs:
+  only_active_with:
+    sched:
+    - step
+    - multistep
+  range:
+  - 1
+  - 20
+  type: int
+decay_rate:
+  log: false
+  only_active_with:
+    sched:
+    - step
+    - multistep
+  range:
+  - 0.1
+  - 0.5
+  type: float
+delta_reg:
+  log: true
+  range:
+  - 0
+  - 0.1
+  type: float
+drop:
+  log: false
+  range:
+  - 0
+  - 0.4
+  type: float
+epochs:
+  options:
+  - 50
+  type: categorical
+layer_decay:
+  options:
+  - None
+  - 0.65
+  - 0.75
+  type: categorical
+linear_probing:
+  options:
+  - false
+  - true
+  type: categorical
+lr:
+  log: true
+  range:
+  - 1.0e-05
+  - 0.01
+  type: float
+mixup:
+  log: true
+  range:
+  - 0
+  - 8
+  type: float
+mixup_prob:
+  log: false
+  range:
+  - 0
+  - 1
+  type: float
+model:
+  options:
+  - beit_large_patch16_512
+  - volo_d5_512
+  - volo_d5_448
+  - volo_d4_448
+  - swinv2_base_window12to24_192to384_22kft1k
+  - beit_base_patch16_384
+  - volo_d3_448
+  - tf_efficientnet_b7_ns
+  - convnext_small_384_in22ft1k
+  - tf_efficientnet_b6_ns
+  - volo_d1_384
+  - xcit_small_12_p8_384_dist
+  - deit3_small_patch16_384_in21ft1k
+  - tf_efficientnet_b4_ns
+  - xcit_tiny_24_p8_384_dist
+  - xcit_tiny_12_p8_384_dist
+  - edgenext_small
+  - xcit_nano_12_p8_384_dist
+  - mobilevitv2_075
+  - edgenext_x_small
+  - mobilevit_xs
+  - edgenext_xx_small
+  - mobilevit_xxs
+  - dla46x_c
+  type: categorical
+momentum:
+  only_active_with:
+    opt:
+    - momentum
+  options:
+  - 0
+  - 0.8
+  - 0.9
+  - 0.95
+  - 0.99
+  type: categorical
+opt:
+  options:
+  - sgd
+  - momentum
+  - adam
+  - adamw
+  - adamp
+  type: categorical
+opt_betas:
+  only_active_with:
+    opt:
+    - adam
+    - adamw
+    - adamp
+  options:
+  - 0.9 0.999
+  - 0 0.99
+  - 0.9 0.99
+  - 0 0.999
+  type: categorical
+patience_epochs:
+  log: false
+  only_active_with:
+    sched:
+    - plateau
+  range:
+  - 2
+  - 5
+  type: int
+pct_to_freeze:
+  log: true
+  range:
+  - 0.0
+  - 1.0
+  type: float
+ra_magnitude:
+  only_active_with:
+    data_augmentation:
+    - random_augment
+  range:
+  - 9
+  - 17
+  type: int
+ra_num_ops:
+  only_active_with:
+    data_augmentation:
+    - random_augment
+  range:
+  - 2
+  - 3
+  type: int
+sched:
+  options:
+  - None
+  - cosine
+  - step
+  - multistep
+  - plateau
+  type: categorical
+smoothing:
+  log: false
+  range:
+  - 0
+  - 0.1
+  type: float
+sp_reg:
+  log: true
+  range:
+  - 0
+  - 0.1
+  type: float
+stoch_norm:
+  options:
+  - false
+  - true
+  type: categorical
+warmup_epochs:
+  log: false
+  range:
+  - 0
+  - 10
+  type: int
+warmup_lr:
+  log: true
+  range:
+  - 0
+  - 1.0e-06
+  type: float
+weight_decay:
+  log: true
+  range:
+  - 0
+  - 0.1
+  type: float
