@@ -38,7 +38,7 @@ from timm.data import (
     FastCollateMixup,
     Mixup,
     create_dataset,
-    create_loader,
+    # create_loader,
     resolve_data_config,
 )
 from timm.loss import (
@@ -48,19 +48,22 @@ from timm.loss import (
     SoftTargetCrossEntropy,
 )
 from timm.models import (
-    convert_splitbn_model,
-    convert_sync_batchnorm,
+    # convert_splitbn_model,
+    # convert_sync_batchnorm,
     create_model,
     load_checkpoint,
     model_parameters,
     resume_checkpoint,
     safe_model_name,
-    set_fast_norm,
+    # set_fast_norm,
 )
+from timm.layers import convert_splitbn_model, convert_sync_batchnorm, set_fast_norm
 from timm.optim import create_optimizer_v2, optimizer_kwargs
 from timm.scheduler import create_scheduler_v2, scheduler_kwargs
 from timm.utils import ApexScaler, NativeScaler
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
+
+from quicktune.finetune.utils.custom import create_loader
 
 from quicktune.finetune.utils.finetuning_stategies import (
     BatchSpectralShrinkage,
@@ -155,7 +158,9 @@ def main(args, args_text):
             use_amp = "apex"
             assert args.amp_dtype == "float16"
         else:
-            assert has_native_amp, "Please update PyTorch to a version with native AMP (or use APEX)."
+            assert (
+                has_native_amp
+            ), "Please update PyTorch to a version with native AMP (or use APEX)."
             use_amp = "native"
             assert args.amp_dtype in ("float16", "bfloat16")
         if args.amp_dtype == "bfloat16":
@@ -186,9 +191,13 @@ def main(args, args_text):
 
     if args.dataset_augmentation_path:
         try:
-            dataset_aug_path = get_dataset_path(args.dataset_augmentation_path, args.dataset)
+            dataset_aug_path = get_dataset_path(
+                args.dataset_augmentation_path, args.dataset
+            )
             # dataset_path = get_dataset_path(args.data_dir, args.dataset)
-            icgen_dataset_info = get_icgen_dataset_info_json(dataset_aug_path, args.dataset)
+            icgen_dataset_info = get_icgen_dataset_info_json(
+                dataset_aug_path, args.dataset
+            )
 
             actual_num_classes = icgen_dataset_info["number_classes"]
             original_num_classes = get_number_of_classes(dataset_aug_path)
@@ -204,12 +213,16 @@ def main(args, args_text):
             print(
                 f"Number of train samples: {icgen_dataset_info['number_train_samples_per_class']*actual_num_classes}"
             )
-            print(f"Number of test samples: {icgen_dataset_info['number_test_samples_per_class']*actual_num_classes}")
+            print(
+                f"Number of test samples: {icgen_dataset_info['number_test_samples_per_class']*actual_num_classes}"
+            )
 
         except Exception as e:
             raise ValueError(f"Error reading dataset information: {e}")
     else:
-        assert args.num_classes is not None, "num_classes not inferred from data, please set it manually"
+        assert (
+            args.num_classes is not None
+        ), "num_classes not inferred from data, please set it manually"
         # we don't need sub-sampling the datasets (only used when ICGen augmentations are used and dataset_augmentation_path is set)
         extra_dataset_info = {}
 
@@ -236,7 +249,9 @@ def main(args, args_text):
             f"Model {safe_model_name(args.model)} created, param count:{sum([m.numel() for m in model.parameters()])}"
         )
 
-    data_config = resolve_data_config(vars(args), model=model, verbose=utils.is_primary(args))
+    data_config = resolve_data_config(
+        vars(args), model=model, verbose=utils.is_primary(args)
+    )
 
     # correct data config mean
     if args.in_chans == 1:
@@ -289,7 +304,9 @@ def main(args, args_text):
         batch_ratio = global_batch_size / args.lr_base_size
         if not args.lr_base_scale:
             on = args.opt.lower()
-            args.lr_base_scale = "sqrt" if any([o in on for o in ("ada", "lamb")]) else "linear"
+            args.lr_base_scale = (
+                "sqrt" if any([o in on for o in ("ada", "lamb")]) else "linear"
+            )
         if args.lr_base_scale == "sqrt":
             batch_ratio = batch_ratio**0.5
         args.lr = args.lr_base * batch_ratio
@@ -328,10 +345,14 @@ def main(args, args_text):
     if args.sp_reg > 0.0:
         backbone_regularizations.append(SPRegularization(model, head_name, args.sp_reg))
     if args.bss_reg > 0.0:
-        backbone_regularizations.append(BatchSpectralShrinkage(regularization_weight=args.bss_reg))
+        backbone_regularizations.append(
+            BatchSpectralShrinkage(regularization_weight=args.bss_reg)
+        )
     if args.delta_reg > 0.0:
         source_model = copy.deepcopy(model)
-        backbone_regularizations.append(BehavioralRegularization(source_model, regularization_weight=args.delta_reg))
+        backbone_regularizations.append(
+            BehavioralRegularization(source_model, regularization_weight=args.delta_reg)
+        )
     if args.cotuning_reg > 0.0:
         compute_relationship = True
         source_model = copy.deepcopy(model)
@@ -376,7 +397,9 @@ def main(args, args_text):
     if args.model_ema:
         # Important to create EMA model after cuda(), DP wrapper, and AMP but before DDP wrapper
         model_ema = utils.ModelEmaV2(
-            model, decay=args.model_ema_decay, device="cpu" if args.model_ema_force_cpu else None
+            model,
+            decay=args.model_ema_decay,
+            device="cpu" if args.model_ema_force_cpu else None,
         )
         if args.resume:
             load_checkpoint(model_ema.module, args.resume, use_ema=True)
@@ -391,7 +414,9 @@ def main(args, args_text):
         else:
             if utils.is_primary(args):
                 _logger.info("Using native Torch DistributedDataParallel.")
-            model = NativeDDP(model, device_ids=[device], broadcast_buffers=not args.no_ddp_bb)
+            model = NativeDDP(
+                model, device_ids=[device], broadcast_buffers=not args.no_ddp_bb
+            )
         # NOTE: EMA model does not need to be wrapped by DDP
 
     # create the train and eval datasets
@@ -436,7 +461,9 @@ def main(args, args_text):
             num_classes=args.num_classes,
         )
         if args.prefetcher:
-            assert not num_aug_splits  # collate conflict (need to support deinterleaving in collate mixup)
+            assert (
+                not num_aug_splits
+            )  # collate conflict (need to support deinterleaving in collate mixup)
             collate_fn = FastCollateMixup(**mixup_args)
         else:
             mixup_fn = Mixup(**mixup_args)
@@ -452,7 +479,7 @@ def main(args, args_text):
     loader_train = create_loader(
         dataset_train,
         input_size=data_config["input_size"],
-        in_chans=in_chans,
+        # in_chans=in_chans,
         batch_size=args.batch_size,
         is_training=True,
         use_prefetcher=args.prefetcher,
@@ -480,7 +507,7 @@ def main(args, args_text):
         use_multi_epochs_loader=args.use_multi_epochs_loader,
         worker_seeding=args.worker_seeding,
         trivial_augment=args.trivial_augment,
-        random_augment=args.random_augment,
+        rand_augment=args.random_augment,
         ra_num_ops=args.ra_num_ops,
         ra_magnitude=args.ra_magnitude,
         persistent_workers=args.persistent_workers,
@@ -493,7 +520,6 @@ def main(args, args_text):
     loader_eval = create_loader(
         dataset_eval,
         input_size=data_config["input_size"],
-        in_chans=in_chans,
         batch_size=args.validation_batch_size or args.batch_size,
         is_training=False,
         use_prefetcher=args.prefetcher,
@@ -521,15 +547,24 @@ def main(args, args_text):
             + ".npy"
         )
         output_dir = utils.get_outdir(
-            os.path.join(args.output, "..", "relationships") if args.output else "./output/relationships"
+            os.path.join(args.output, "..", "relationships")
+            if args.output
+            else "./output/relationships"
         )
-        relationship = Relationship(loader_train, source_model, device, cache=os.path.join(output_dir, file_name))
+        relationship = Relationship(
+            loader_train,
+            source_model,
+            device,
+            cache=os.path.join(output_dir, file_name),
+        )
     else:
         relationship = None
     # setup loss function
     if args.jsd_loss:
         assert num_aug_splits > 1  # JSD only valid with aug splits set
-        train_loss_fn = JsdCrossEntropy(num_splits=num_aug_splits, smoothing=args.smoothing)
+        train_loss_fn = JsdCrossEntropy(
+            num_splits=num_aug_splits, smoothing=args.smoothing
+        )
     elif mixup_active:
         # smoothing is handled with mixup target transform which outputs sparse, soft targets
         if args.bce_loss:
@@ -538,7 +573,9 @@ def main(args, args_text):
             train_loss_fn = SoftTargetCrossEntropy()
     elif args.smoothing:
         if args.bce_loss:
-            train_loss_fn = BinaryCrossEntropy(smoothing=args.smoothing, target_threshold=args.bce_target_thresh)
+            train_loss_fn = BinaryCrossEntropy(
+                smoothing=args.smoothing, target_threshold=args.bce_target_thresh
+            )
         else:
             train_loss_fn = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     else:
@@ -563,7 +600,9 @@ def main(args, args_text):
                     str(data_config["input_size"][-1]),
                 ]
             )
-        output_dir = utils.get_outdir(args.output if args.output else "./output/train", exp_name)
+        output_dir = utils.get_outdir(
+            args.output if args.output else "./output/train", exp_name
+        )
 
         if has_synetune and args.report_synetune:
             # report = Reporter()
@@ -700,7 +739,9 @@ def main(args, args_text):
 
             if model_ema is not None and not args.model_ema_force_cpu:
                 if args.distributed and args.dist_bn in ("broadcast", "reduce"):
-                    utils.distribute_bn(model_ema, args.world_size, args.dist_bn == "reduce")
+                    utils.distribute_bn(
+                        model_ema, args.world_size, args.dist_bn == "reduce"
+                    )
 
                 ema_eval_metrics = validate(
                     model_ema.module,
@@ -729,7 +770,9 @@ def main(args, args_text):
             if not args.test_mode and saver is not None:
                 # save proper checkpoint with eval metric
                 save_metric = eval_metrics[eval_metric]
-                best_metric, best_epoch = saver.save_checkpoint(epoch, metric=save_metric)
+                best_metric, best_epoch = saver.save_checkpoint(
+                    epoch, metric=save_metric
+                )
 
             if lr_scheduler is not None:
                 # step LR for next epoch
@@ -808,7 +851,9 @@ def train_one_epoch(
     for batch_idx, (input, target) in enumerate(loader):
         if args.test_mode:
             if batch_idx > 1:
-                print("--------- test_mode set to True: breaking epoch for test reasons ---------")
+                print(
+                    "--------- test_mode set to True: breaking epoch for test reasons ---------"
+                )
                 break
 
         last_batch = batch_idx == last_idx
@@ -843,7 +888,11 @@ def train_one_epoch(
                         output_source, _, layer_outputs_source = output
                     loss += backbone_regularization(layer_outputs_source, features)
                 if isinstance(backbone_regularization, CoTuningLoss):
-                    source_label = torch.from_numpy(relationship[target.cpu().numpy()]).to(device).float()
+                    source_label = (
+                        torch.from_numpy(relationship[target.cpu().numpy()])
+                        .to(device)
+                        .float()
+                    )
                     loss += backbone_regularization(source_output, source_label)
 
         if not args.distributed:
@@ -855,7 +904,9 @@ def train_one_epoch(
                 optimizer,
                 clip_grad=args.clip_grad,
                 clip_mode=args.clip_mode,
-                parameters=model_parameters(model, exclude_head="agc" in args.clip_mode),
+                parameters=model_parameters(
+                    model, exclude_head="agc" in args.clip_mode
+                ),
                 create_graph=second_order,
             )
         else:
@@ -879,11 +930,15 @@ def train_one_epoch(
             num_logs += 1
             lrl = [param_group["lr"] for param_group in optimizer.param_groups]
             lr = sum(lrl) / len(lrl)
-            temp_backbone_grad_norm, temp_head_grad_norm = compute_gradient_norm(model, head_name)
+            temp_backbone_grad_norm, temp_head_grad_norm = compute_gradient_norm(
+                model, head_name
+            )
             backbone_grad_norm = (num_logs - 1) * backbone_grad_norm / num_logs + (
                 1 / num_logs
             ) * temp_backbone_grad_norm
-            head_grad_norm = (num_logs - 1) * head_grad_norm / num_logs + (1 / num_logs) * temp_head_grad_norm
+            head_grad_norm = (num_logs - 1) * head_grad_norm / num_logs + (
+                1 / num_logs
+            ) * temp_head_grad_norm
 
             if args.distributed:
                 reduced_loss = utils.reduce_tensor(loss.data, args.world_size)
@@ -918,7 +973,10 @@ def train_one_epoch(
 
                 if args.save_images and output_dir:
                     torchvision.utils.save_image(
-                        input, os.path.join(output_dir, "train-batch-%d.jpg" % batch_idx), padding=0, normalize=True
+                        input,
+                        os.path.join(output_dir, "train-batch-%d.jpg" % batch_idx),
+                        padding=0,
+                        normalize=True,
                     )
 
         if (
@@ -941,7 +999,11 @@ def train_one_epoch(
         optimizer.sync_lookahead()
 
     return OrderedDict(
-        [("loss", losses_m.avg), ("head_grad_norm", head_grad_norm), ("backbone_grad_norm", backbone_grad_norm)]
+        [
+            ("loss", losses_m.avg),
+            ("head_grad_norm", head_grad_norm),
+            ("backbone_grad_norm", backbone_grad_norm),
+        ]
     )
 
 
@@ -970,7 +1032,9 @@ def validate(
         for batch_idx, (input, target) in enumerate(loader):
             if args.test_mode:
                 if batch_idx > 1:
-                    print("--------- test_mode set to True: breaking epoch for test reasons ---------")
+                    print(
+                        "--------- test_mode set to True: breaking epoch for test reasons ---------"
+                    )
                     break
 
             last_batch = batch_idx == last_idx
@@ -1018,7 +1082,9 @@ def validate(
 
             batch_time_m.update(time.time() - end)
             end = time.time()
-            if utils.is_primary(args) and (last_batch or batch_idx % args.log_interval == 0):
+            if utils.is_primary(args) and (
+                last_batch or batch_idx % args.log_interval == 0
+            ):
                 log_name = "Test" + log_suffix
                 _logger.info(
                     "{0}: [{1:>4d}/{2}]  "
@@ -1026,9 +1092,17 @@ def validate(
                     "Loss: {loss.val:>7.4f} ({loss.avg:>6.4f})  "
                     "Acc@1: {top1.val:>7.4f} ({top1.avg:>7.4f})  "
                     "Acc@5: {top5.val:>7.4f} ({top5.avg:>7.4f})".format(
-                        log_name, batch_idx, last_idx, batch_time=batch_time_m, loss=losses_m, top1=top1_m, top5=top5_m
+                        log_name,
+                        batch_idx,
+                        last_idx,
+                        batch_time=batch_time_m,
+                        loss=losses_m,
+                        top1=top1_m,
+                        top5=top5_m,
                     )
                 )
-    metrics = OrderedDict([("loss", losses_m.avg), ("top1", top1_m.avg), ("top5", top5_m.avg)])
+    metrics = OrderedDict(
+        [("loss", losses_m.avg), ("top1", top1_m.avg), ("top5", top5_m.avg)]
+    )
 
     return metrics

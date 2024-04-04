@@ -14,7 +14,6 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         likelihood: gpytorch.likelihoods.GaussianLikelihood,
     ):
         """
-        Constructor of the GPRegressionModel.
         Args:
             train_x: The initial train examples for the GP.
             train_y: The initial train labels for the GP.
@@ -25,8 +24,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-
-        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)  # type: ignore

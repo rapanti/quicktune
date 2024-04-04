@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -85,7 +85,7 @@ class MetaDataset:
         self,
         path: str,
         version: str,
-        curves_to_load: List[str] | None = None,
+        curves_to_load: Optional[List[str]] = None,
         preprocess_args: bool = True,
         aggregate_data: bool = False,
         drop_constant_args: bool = True,
@@ -322,7 +322,7 @@ class MetaDataset:
             col_transformer = ColumnTransformer(transformers=[("cat", cat_transformer, cat_columns)])
 
             # Fit and transform the data
-            df_cat_transformed = col_transformer.fit_transform(args_df).toarray()
+            df_cat_transformed = col_transformer.fit_transform(args_df).toarray()  # type: ignore
             new_cat_columns = col_transformer.get_feature_names_out().tolist()
             df_cat_transformed = pd.DataFrame(df_cat_transformed, columns=new_cat_columns)
         else:
@@ -505,7 +505,6 @@ class MetaDataset:
         assert self.dataset_name is not None, "Dataset name not set. Use set_dataset_name() to set it."
         return len(self.get_curve(*args, **kwargs))
 
-    # def get_hyperparameters(self, hp_index=None):
     def get_hyperparameters(self, hp_index):
         return self.hyperparameters_candidates.iloc[hp_index]
 
@@ -515,8 +514,8 @@ class MetaDataset:
     def get_hyperparameters_names(self):
         return self.hyperparameter_names
 
-    def set_preset_metafeatures(self, preset_metafeatures):
-        self.preset_metafeatures = preset_metafeatures
+    # def set_preset_metafeatures(self, preset_metafeatures):
+    #     self.preset_metafeatures = preset_metafeatures
 
     def get_metafeatures(self):
         if self.augmentation_id is not None:
@@ -530,14 +529,14 @@ class MetaDataset:
         else:
             return self.preset_metafeatures
 
-    def set_action_on_model(self, target_model, action_on_model):
-        # set action
-        self.action_on_model = action_on_model
-        self.target_model = target_model
+    # def set_action_on_model(self, target_model, action_on_model):
+    #     # set action
+    #     self.action_on_model = action_on_model
+    #     self.target_model = target_model
 
-    def reset_action_on_model(self):
-        self.action_on_model = None
-        self.target_model = None
+    # def reset_action_on_model(self):
+    #     self.action_on_model = None
+    #     self.target_model = None
 
     def set_subsample_models(self, subsample_models_in_hub):
         self.subsample_models_in_hub = subsample_models_in_hub

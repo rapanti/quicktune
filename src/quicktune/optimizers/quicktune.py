@@ -19,17 +19,17 @@ class QuickTuneOptimizer:
     def __init__(
         self,
         model: DyHPO,
-        hp_candidates: np.ndarray,
+        hp_candidates: List,
         log_indicator: List[bool],
         hp_names: List[str],
-        init_conf_indices: list = [],
+        init_conf_indices: Optional[List] = None,
         seed: int = 11,
         max_benchmark_epochs: int = 50,
         fantasize_step: int = 1,
         minimization: bool = True,
         total_budget: int = 10000,  # budget in epochs (not time)
-        device: str = '',
-        dataset_name: str = "dataset",
+        device: str = "",
+        dataset_name: str = "",
         output_path: str = ".",
         acqf_fc: str = "ucb",
         explore_factor=1.0,
@@ -40,11 +40,9 @@ class QuickTuneOptimizer:
         """
         Args:
             hp_candidates: np.ndarray
-                The full list of hyperparameter candidates for
-                a given dataset.
+                The full list of hyperparameter candidates for a given dataset.
             log_indicator: List
-                A list with boolean values indicating if a
-                hyperparameter has been log sampled or not.
+                A list with boolean values indicating if a hyperparameter has been log sampled or not.
             seed: int
                 The seed that will be used for the surrogate.
             max_benchmark_epochs: int
@@ -76,17 +74,15 @@ class QuickTuneOptimizer:
         if device:
             self.device = torch.device(device)
         else:
-            self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")            
+            self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
         self.hp_candidates = hp_candidates
         self.log_indicator = log_indicator
         self.hp_names = hp_names
 
         if apply_preprocessing:
-            self.scaler = MinMaxScaler()
             self.hp_candidates = self.preprocess_hp_candidates()
         else:
-            self.scaler = None
             self.hp_candidates = np.array(self.hp_candidates)
 
         self.minimization = minimization
@@ -119,7 +115,7 @@ class QuickTuneOptimizer:
         self.rng = np.random.default_rng(seed)
 
         conf_individual_budget = 1
-        if not init_conf_indices:
+        if init_conf_indices is None:
             initial_configurations_nr = 1
             self.init_conf_indices = self.rng.choice(
                 self.hp_candidates.shape[0], initial_configurations_nr, replace=False
@@ -159,7 +155,7 @@ class QuickTuneOptimizer:
         self.converged_configs = []
         self.acq_fc = acqf_fc
         self.explore_factor = explore_factor
-        self.cost_trainer = None
+        self.cost_trainer: Optional[torch.nn.Module] = None
 
     def _prepare_dataset_and_budgets(self) -> Dict[str, torch.Tensor]:
         """
@@ -211,7 +207,7 @@ class QuickTuneOptimizer:
             load_checkpoint=False,
         )
 
-    def _predict(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List, List]:
+    def _predict(self) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], List, np.ndarray]:
         """
         Predict the performances of the hyperparameter configurations
         as well as the standard deviations based on the surrogate model.
@@ -274,6 +270,7 @@ class QuickTuneOptimizer:
     def suggest(self) -> Tuple[int, int]:
         """
         Suggest a hyperparameter configuration to be evaluated next.
+
         Returns:
             best_config_index, budget: The index of the hyperparamter
                 configuration to be evaluated and the budget for
@@ -289,6 +286,7 @@ class QuickTuneOptimizer:
             self.initial_random_index += 1
 
             return random_indice, budget
+
         else:
             mean_predictions, std_predictions, costs, hp_indices, non_scaled_budgets = self._predict()
 
@@ -402,12 +400,9 @@ class QuickTuneOptimizer:
 
         return examples
 
-    def generate_candidate_configurations(
-        self,
-    ) -> Tuple[List, List, List, List]:
+    def generate_candidate_configurations(self) -> Tuple[List, List, List, List]:
         """
-        Generate candidate configurations that will be
-        fantasized upon.
+        Generate candidate configurations that will be fantasized upon.
         Returns:
             (configurations, hp_indices, hp_budgets, learning_curves): Tuple
                 A tuple of configurations, their indices in the hp list
@@ -429,14 +424,12 @@ class QuickTuneOptimizer:
                 # take the learning curve until the point we have evaluated so far
                 # curve = self.performances[hp_index][:max_budget - 1] if max_budget > 1 else [0.0]
                 curve = self.performances[hp_index][:max_budget]
-                # if the curve is shorter than the length of the kernel size,
-                # pad it with zeros
+                # if the curve is shorter than the length of the kernel size, pad it with zeros
                 difference_curve_length = self.max_benchmark_epochs - len(curve)
                 if difference_curve_length > 0:
                     curve.extend([0.0] * difference_curve_length)
             else:
-                # The hpc was not evaluated before, so fantasize its
-                # performance
+                # The hpc was not evaluated before, so fantasize its performance
                 next_budget = self.fantasize_step
                 curve = [0, 0, 0]
 
@@ -490,9 +483,9 @@ class QuickTuneOptimizer:
         best_value: float,
         mean: float,
         std: float,
-        explore_factor: Optional[float] = 0.25,
+        explore_factor: float = 0.25,
         acq_fc: str = "ei",
-        cost: Optional[float] = 1,
+        cost: float = 1,
     ) -> float:
         """
         The acquisition function that will be called
@@ -508,8 +501,6 @@ class QuickTuneOptimizer:
         explore_factor: float
             The exploration factor for when ucb is used as the
             acquisition function.
-        ei_calibration_factor: float
-            The factor used to calibrate expected improvement.
         acq_fc: str
             The type of acquisition function to use.
         Returns
@@ -543,7 +534,7 @@ class QuickTuneOptimizer:
         mean_predictions: np.ndarray,
         mean_stds: np.ndarray,
         budgets: List,
-        costs: Optional[np.array] = None,
+        costs: Optional[np.ndarray] = None,
         return_highest_acq_value: bool = False,
     ):
         """
@@ -663,10 +654,11 @@ class QuickTuneOptimizer:
         else:
             self.info_dict["overhead"] = [overhead]
 
-        with open(os.path.join(self.output_path, f"{self.dataset_name}_{self.seed}.json"), "w") as fp:
+        output_path = os.path.join(self.output_path, f"{self.dataset_name}_{self.seed}.json")
+        with open(output_path, "w") as fp:
             json.dump(self.info_dict, fp)
 
-    def preprocess_hp_candidates(self) -> List:
+    def preprocess_hp_candidates(self) -> np.ndarray:
         """
         Preprocess the list of all hyperparameter candidates
         by  performing a log transform for the hyperparameters that
@@ -685,9 +677,10 @@ class QuickTuneOptimizer:
             log_hp_candidates.append(new_hp_candidate)
 
         log_hp_candidates = np.array(log_hp_candidates)
+        
         # scaler for the hp configurations
-
-        log_hp_candidates = self.scaler.fit_transform(log_hp_candidates)
+        scaler = MinMaxScaler()
+        log_hp_candidates = scaler.fit_transform(log_hp_candidates)
 
         return log_hp_candidates
 

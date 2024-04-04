@@ -1,8 +1,7 @@
 import copy
 import logging
-import os
 from copy import deepcopy
-from typing import Dict, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import gpytorch
 import numpy as np
@@ -31,11 +30,10 @@ class DyHPO:
         meta_checkpoint=None,
         output_path: str = ".",
         seed: int = 42,
+        configuration: Optional[dict] = None,
     ):
         """
-        The constructor for the DyHPO model.
         Args:
-
             device: The device where the experiments will be run on.
             dataset_name: The name of the dataset for the current run.
             output_path: The path where the intermediate/final results
@@ -56,16 +54,14 @@ class DyHPO:
         self.output_dim = output_dim
         self.model, self.likelihood, self.mll = self.get_model_likelihood_mll(self.output_dim)
 
+        self.configuration = configuration
+
         self.model.to(self.dev)
         self.likelihood.to(self.dev)
         self.feature_extractor.to(self.dev)
 
-        self.optimizer = torch.optim.Adam(
-            [
-                {"params": self.model.parameters(), "lr": self.learning_rate},
-                {"params": self.feature_extractor.parameters(), "lr": self.learning_rate},
-            ],
-        )
+        params = list(self.model.parameters()) + list(self.feature_extractor.parameters())
+        self.optimizer = torch.optim.Adam(params, lr=self.learning_rate)
 
         # the number of initial points for which we will retrain fully from scratch
         # This is basically equal to the dimensionality of the search space + 1.
@@ -78,14 +74,8 @@ class DyHPO:
 
         self.logger = logging.getLogger(__name__)
 
-        self.checkpoint_path = os.path.join(
-            output_path,
-            "dyhpo-checkpoints",
-            f"{dataset_name}-seed{self.seed}",
-        )
-
         self.metafeatures: torch.Tensor
-        self.checkpoint_file = os.path.join(self.checkpoint_path, "checkpoint.pth")
+        self.checkpoint_file = "checkpoint.pth"
         self.cost_aware = False
         self.include_metafeatures = include_metafeatures
         self.meta_checkpoint = meta_checkpoint
@@ -107,15 +97,8 @@ class DyHPO:
         else:
             self.load_checkpoint(self.meta_checkpoint)
 
-        self.optimizer = torch.optim.Adam(
-            [
-                {"params": self.model.parameters(), "lr": self.learning_rate},
-                {
-                    "params": self.feature_extractor.parameters(),
-                    "lr": self.learning_rate,
-                },
-            ]
-        )
+        params = list(self.model.parameters()) + list(self.feature_extractor.parameters())
+        self.optimizer = torch.optim.Adam(params, lr=self.learning_rate)
 
     def get_model_likelihood_mll(
         self,
@@ -170,14 +153,14 @@ class DyHPO:
 
         try:
             # Calc loss and backprop derivatives
-            loss = -self.mll(output, self.model.train_targets)
+            loss = -self.mll(output, self.model.train_targets)  # type: ignore
             loss_value = loss.detach().to("cpu").item()
             mse = gpytorch.metrics.mean_squared_error(output, self.model.train_targets)
             self.logger.debug(
                 f"Epoch {epoch_nr} - MSE {mse:.5f}, "
                 f"Loss: {loss_value:.3f}, "
                 f"lengthscale: {self.model.covar_module.base_kernel.lengthscale.item():.3f}, "
-                f"noise: {self.model.likelihood.noise.item():.3f}, "
+                f"noise: {self.model.likelihood.noise.item():.3f}"  # type: ignore
             )
             loss.backward()
             self.optimizer.step()
@@ -201,9 +184,6 @@ class DyHPO:
         """
         self.iterations += 1
         self.logger.debug(f"Starting iteration: {self.iterations}")
-        # whether the state has been changed. Basically, if a better loss was found during
-        # this optimization iteration then the state (weights) were changed.
-        weights_changed = False
 
         if load_checkpoint:
             try:
@@ -243,10 +223,6 @@ class DyHPO:
         else:
             nr_epochs = self.refine_epochs
 
-        # where the mean squared error will be stored
-        # when predicting on the train set
-        mse = 0.0
-
         for epoch_nr in range(0, nr_epochs):
             if self.include_metafeatures:
                 batch_metafeatures = self.metafeatures.repeat(X_train.size(dim=0), 1)
@@ -276,7 +252,7 @@ class DyHPO:
         train_data: Dict[str, torch.Tensor],
         test_data: Dict[str, torch.Tensor],
         to_numpy: bool = True,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, Union[np.ndarray, None]]:
         """
         Args:
             train_data: A dictionary that has the training
@@ -350,7 +326,7 @@ class DyHPO:
             stds = preds.stddev.reshape(
                 -1,
             )
-        return means, stds, costs
+        return means, stds, costs  # type: ignore
 
     def load_checkpoint(self, checkpoint_file=None):
         """
@@ -360,7 +336,8 @@ class DyHPO:
             checkpoint_file = self.checkpoint_file
         checkpoint = torch.load(checkpoint_file)
         self.model.load_state_dict(checkpoint["gp_state_dict"])
-        self.feature_extractor.load_state_dict(checkpoint["feature_extractor_state_dict"])
+        msg = self.feature_extractor.load_state_dict(checkpoint["feature_extractor_state_dict"])
+        print(msg)
         self.original_feature_extractor.load_state_dict(checkpoint["feature_extractor_state_dict"])
         self.likelihood.load_state_dict(checkpoint["likelihood_state_dict"])
 
@@ -371,9 +348,9 @@ class DyHPO:
             state: The state to save, if none, it will
             save the current state.
         """
-        if checkpoint_file == "":
-            os.makedirs(self.checkpoint_path, exist_ok=True)
-            checkpoint_file = self.checkpoint_file
+        # if checkpoint_file == "":
+        #     os.makedirs(self.checkpoint_path, exist_ok=True)
+        #     checkpoint_file = self.checkpoint_file
 
         if state == {}:
             torch.save(self.get_state(), checkpoint_file)
@@ -457,15 +434,15 @@ class FeatureExtractor(nn.Module):
     def __init__(
         self,
         configuration: dict = {},
-        input_dim_hps=None,
-        output_dim=32,
-        input_dim_curves=1,
-        output_dim_curves=16,
-        hidden_dim=128,
-        input_dim_metafeatures=7684,
-        output_dim_metafeatures=0,
-        encoder_dim_ranges=None,
-        encoder_num_layers=1,
+        input_dim_hps: int = 0,
+        output_dim: int = 32,
+        input_dim_curves: int = 1,
+        output_dim_curves: int = 16,
+        hidden_dim: int = 128,
+        input_dim_metafeatures: int = 7684,
+        output_dim_metafeatures: int = 0,
+        encoder_dim_ranges: Optional[List[Tuple[int, int]]] = None,
+        encoder_num_layers: int = 1,
     ):
         super().__init__()
 

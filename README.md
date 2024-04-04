@@ -14,23 +14,13 @@ To install QuickTune, you can simply use `pip`:
 pip install quicktune
 ```
 
-This project depends on a custom version of [*timm*](https://github.com/huggingface/pytorch-image-models), which is not available on PyPI. You can install it by running the following command:
-```bash
-pip install git+https://github.com/rapanti/qt_timm
-```
-
 ### Download the QuickTune Meta-Dataset:
 ```bash
 wget https://rewind.tf.uni-freiburg.de/index.php/s/oMxC5sfrkA53ESo/download/qt_metadataset.zip
 unzip qt_metadataset.zip
 ```
 
-### Download the metalearned Optimizer
-```bash
-wget https://rewind.tf.uni-freiburg.de/index.php/s/XBsMjps5n3N9we6/download/mini.pth.tar
-```
-
-### Prepare Custom Dataset
+### Run on Custom Dataset
 The custom dataset must be in Pytorch's [ImageFolder](https://pytorch.org/vision/main/generated/torchvision.datasets.ImageFolder.html) format, e.g. download the Imagenette dataset:
 ```bash
 wget https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz

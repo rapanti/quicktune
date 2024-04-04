@@ -67,7 +67,7 @@ class TwoHeadsModel(nn.Module):
         output, features = self.model(*args, **kwargs)
         x = self.model.last_layer_output
         source_output = None
-        if isinstance(self.model._model, models.xcit.XCiT):
+        if isinstance(self.model._model, models.xcit.Xcit):
             if self.model._model.global_pool:
                 x = x[:, 1:].mean(dim=1) if self.model._model.global_pool == "avg" else x[:, 0]
 
@@ -183,7 +183,7 @@ def get_layers(model, num_classes, device, freezable_thd=0, change_head=False):
         last_hidden_layer_name = "global_pool"
         head_name = "fc"
 
-    elif isinstance(model, models.xcit.XCiT):
+    elif isinstance(model, models.xcit.Xcit):
         source_head = copy.deepcopy(model.head)
         if change_head:
             num_ftrs = model.head.in_features
@@ -335,7 +335,7 @@ def get_layers_by_module_children(model, num_classes, device, freezable_thd=0, c
         last_hidden_layer_name = "global_pool"
         head_name = "fc"
 
-    elif isinstance(model, models.xcit.XCiT):
+    elif isinstance(model, models.xcit.Xcit):
         source_head = copy.deepcopy(model.head)
         if change_head:
             num_ftrs = model.head.in_features
