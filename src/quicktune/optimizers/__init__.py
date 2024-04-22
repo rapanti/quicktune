@@ -1,10 +1,4 @@
-from quicktune.optimizers.bo import BO
-from quicktune.optimizers.dyhpo import DyHPO, FeatureExtractor
-from quicktune.optimizers.quicktune import QuickTuneOptimizer
+from .quicktune import QuickTuneOptimizer
+from .factory import get_qt_optimizer
 
-__all__ = [
-    "BO",
-    "DyHPO",
-    "FeatureExtractor",
-    "QuickTuneOptimizer",
-]
+__all__ = ["get_qt_optimizer", "QuickTuneOptimizer"]

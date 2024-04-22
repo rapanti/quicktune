@@ -22,11 +22,25 @@ def build_parser():
         "only datasets located under <data_dir> are considered.",
     )
 
-    group.add_argument("--dataset", "-d", metavar="NAME", default="", help="dataset name, e.g. tfds/eurosat/rgb")
-
-    group.add_argument("--train-split", metavar="NAME", default="train", help="dataset train split (default: train)")
     group.add_argument(
-        "--val-split", metavar="NAME", default="validation", help="dataset validation split (default: validation)"
+        "--dataset",
+        "-d",
+        metavar="NAME",
+        default="",
+        help="dataset name, e.g. tfds/eurosat/rgb",
+    )
+
+    group.add_argument(
+        "--train-split",
+        metavar="NAME",
+        default="train",
+        help="dataset train split (default: train)",
+    )
+    group.add_argument(
+        "--val-split",
+        metavar="NAME",
+        default="validation",
+        help="dataset validation split (default: validation)",
     )
     group.add_argument(
         "--dataset-download",
@@ -36,13 +50,21 @@ def build_parser():
         help="Allow download of dataset for torch/ and tfds/ datasets that support it.",
     )
     group.add_argument(
-        "--class-map", default="", type=str, metavar="FILENAME", help='path to class to idx mapping file (default: "")'
+        "--class-map",
+        default="",
+        type=str,
+        metavar="FILENAME",
+        help='path to class to idx mapping file (default: "")',
     )
 
     # Model parameters
     group = parser.add_argument_group("Model parameters")
     group.add_argument(
-        "--model", default="resnet50", type=str, metavar="MODEL", help='Name of model to train (default: "resnet50")'
+        "--model",
+        default="resnet50",
+        type=str,
+        metavar="MODEL",
+        help='Name of model to train (default: "resnet50")',
     )
     group.add_argument(
         "--pretrained",
@@ -118,10 +140,20 @@ def build_parser():
         help="Input image center crop percent (for validation only)",
     )
     group.add_argument(
-        "--mean", type=float, nargs="+", default=None, metavar="MEAN", help="Override mean pixel value of dataset"
+        "--mean",
+        type=float,
+        nargs="+",
+        default=None,
+        metavar="MEAN",
+        help="Override mean pixel value of dataset",
     )
     group.add_argument(
-        "--std", type=float, nargs="+", default=None, metavar="STD", help="Override std deviation of dataset"
+        "--std",
+        type=float,
+        nargs="+",
+        default=None,
+        metavar="STD",
+        help="Override std deviation of dataset",
     )
     group.add_argument(
         "--interpolation",
@@ -148,10 +180,18 @@ def build_parser():
         metavar="N",
         help="Validation batch size override (default: None)",
     )
-    group.add_argument("--channels-last", action="store_true", default=False, help="Use channels_last memory layout")
+    group.add_argument(
+        "--channels-last",
+        action="store_true",
+        default=False,
+        help="Use channels_last memory layout",
+    )
     scripting_group = group.add_mutually_exclusive_group()
     scripting_group.add_argument(
-        "--torchscript", dest="torchscript", action="store_true", help="torch.jit.script the full model"
+        "--torchscript",
+        dest="torchscript",
+        action="store_true",
+        help="torch.jit.script the full model",
     )
     scripting_group.add_argument(
         "--aot-autograd",
@@ -159,8 +199,18 @@ def build_parser():
         action="store_true",
         help="Enable AOT Autograd support. (It's recommended to use this option with `--fuser nvfuser` together)",
     )
-    group.add_argument("--fuser", default="", type=str, help="Select jit fuser. One of ('', 'te', 'old', 'nvfuser')")
-    group.add_argument("--fast-norm", default=False, action="store_true", help="enable experimental fast-norm")
+    group.add_argument(
+        "--fuser",
+        default="",
+        type=str,
+        help="Select jit fuser. One of ('', 'te', 'old', 'nvfuser')",
+    )
+    group.add_argument(
+        "--fast-norm",
+        default=False,
+        action="store_true",
+        help="enable experimental fast-norm",
+    )
     group.add_argument(
         "--grad-checkpointing",
         action="store_true",
@@ -170,7 +220,13 @@ def build_parser():
 
     # Optimizer parameters
     group = parser.add_argument_group("Optimizer parameters")
-    group.add_argument("--opt", default="sgd", type=str, metavar="OPTIMIZER", help='Optimizer (default: "sgd")')
+    group.add_argument(
+        "--opt",
+        default="sgd",
+        type=str,
+        metavar="OPTIMIZER",
+        help='Optimizer (default: "sgd")',
+    )
     group.add_argument(
         "--opt-eps",
         "--opt_eps",
@@ -188,9 +244,19 @@ def build_parser():
         metavar="BETA",
         help="Optimizer Betas (default: None, use opt default)",
     )
-    group.add_argument("--momentum", type=float, default=0.9, metavar="M", help="Optimizer momentum (default: 0.9)")
     group.add_argument(
-        "--weight-decay", "--weight_decay", type=float, default=2e-5, help="weight decay (default: 2e-5)"
+        "--momentum",
+        type=float,
+        default=0.9,
+        metavar="M",
+        help="Optimizer momentum (default: 0.9)",
+    )
+    group.add_argument(
+        "--weight-decay",
+        "--weight_decay",
+        type=float,
+        default=2e-5,
+        help="weight decay (default: 2e-5)",
     )
     group.add_argument(
         "--clip-grad",
@@ -218,7 +284,11 @@ def build_parser():
     # Learning rate schedule parameters
     group = parser.add_argument_group("Learning rate schedule parameters")
     group.add_argument(
-        "--sched", type=str, default="cosine", metavar="SCHEDULER", help='LR scheduler (default: "step"'
+        "--sched",
+        type=str,
+        default="cosine",
+        metavar="SCHEDULER",
+        help='LR scheduler (default: "step"',
     )
     group.add_argument(
         "--sched-on-updates",
@@ -227,7 +297,11 @@ def build_parser():
         help="Apply LR scheduler step on update instead of epoch end.",
     )
     group.add_argument(
-        "--lr", type=float, default=None, metavar="LR", help="learning rate, overrides lr-base if set (default: None)"
+        "--lr",
+        type=float,
+        default=None,
+        metavar="LR",
+        help="learning rate, overrides lr-base if set (default: None)",
     )
     group.add_argument(
         "--lr-base",
@@ -269,7 +343,11 @@ def build_parser():
         help="learning rate noise limit percent (default: 0.67)",
     )
     group.add_argument(
-        "--lr-noise-std", type=float, default=1.0, metavar="STDDEV", help="learning rate noise std-src (default: 1.0)"
+        "--lr-noise-std",
+        type=float,
+        default=1.0,
+        metavar="STDDEV",
+        help="learning rate noise std-src (default: 1.0)",
     )
     group.add_argument(
         "--lr-cycle-mul",
@@ -286,7 +364,11 @@ def build_parser():
         help="amount to decay each learning rate cycle (default: 0.5)",
     )
     group.add_argument(
-        "--lr-cycle-limit", type=int, default=1, metavar="N", help="learning rate cycle limit, cycles enabled if > 1"
+        "--lr-cycle-limit",
+        type=int,
+        default=1,
+        metavar="N",
+        help="learning rate cycle limit, cycles enabled if > 1",
     )
     group.add_argument(
         "--lr-k-decay",
@@ -311,7 +393,13 @@ def build_parser():
         metavar="LR",
         help="lower lr bound for cyclic schedulers that hit 0 (default: 0)",
     )
-    group.add_argument("--epochs", type=int, default=300, metavar="N", help="number of epochs to train (default: 300)")
+    group.add_argument(
+        "--epochs",
+        type=int,
+        default=300,
+        metavar="N",
+        help="number of epochs to train (default: 300)",
+    )
     group.add_argument(
         "--epoch-repeats",
         type=float,
@@ -320,7 +408,11 @@ def build_parser():
         help="epoch repeat multiplier (number of times to repeat dataset epoch per train epoch).",
     )
     group.add_argument(
-        "--start-epoch", default=None, type=int, metavar="N", help="manual epoch number (useful on restarts)"
+        "--start-epoch",
+        default=None,
+        type=int,
+        metavar="N",
+        help="manual epoch number (useful on restarts)",
     )
     group.add_argument(
         "--decay-milestones",
@@ -331,7 +423,12 @@ def build_parser():
         help="list of decay epoch indices for multistep lr. must be increasing",
     )
     group.add_argument(
-        "--decay-epochs", "--decay_epochs", type=float, default=90, metavar="N", help="epoch interval to decay LR"
+        "--decay-epochs",
+        "--decay_epochs",
+        type=float,
+        default=90,
+        metavar="N",
+        help="epoch interval to decay LR",
     )
     group.add_argument(
         "--warmup-epochs",
@@ -342,7 +439,10 @@ def build_parser():
         help="epochs to warmup LR, if scheduler supports",
     )
     group.add_argument(
-        "--warmup-prefix", action="store_true", default=False, help="Exclude warmup period from decay schedule."
+        "--warmup-prefix",
+        action="store_true",
+        default=False,
+        help="Exclude warmup period from decay schedule.",
     )
     group.add_argument(
         "--cooldown-epochs",
@@ -393,10 +493,24 @@ def build_parser():
         metavar="RATIO",
         help="Random resize aspect ratio (default: 0.75 1.33)",
     )
-    group.add_argument("--hflip", type=float, default=0.5, help="Horizontal flip training aug probability")
-    group.add_argument("--vflip", type=float, default=0.0, help="Vertical flip training aug probability")
     group.add_argument(
-        "--color-jitter", type=float, default=0.4, metavar="PCT", help="Color jitter factor (default: 0.4)"
+        "--hflip",
+        type=float,
+        default=0.5,
+        help="Horizontal flip training aug probability",
+    )
+    group.add_argument(
+        "--vflip",
+        type=float,
+        default=0.0,
+        help="Vertical flip training aug probability",
+    )
+    group.add_argument(
+        "--color-jitter",
+        type=float,
+        default=0.4,
+        metavar="PCT",
+        help="Color jitter factor (default: 0.4)",
     )
 
     group.add_argument(
@@ -407,17 +521,31 @@ def build_parser():
         help='Use AutoAugment policy. "v0" or "original". (default: None)',
     )
     group.add_argument(
-        "--trivial_augment", action="store_true", default=False, help='Use TrivialAgument". (default: False)'
+        "--trivial_augment",
+        action="store_true",
+        default=False,
+        help='Use TrivialAgument". (default: False)',
     )
 
     # TODO: implement
     group.add_argument(
-        "--random_augment", action="store_true", default=False, help="Use RandAugmentation policy. (default: None)"
+        "--random_augment",
+        action="store_true",
+        default=False,
+        help="Use RandAugmentation policy. (default: None)",
     )
-    group.add_argument("--ra_num_ops", type=int, default=2, help="todo. (default: None)")
-    group.add_argument("--ra_magnitude", type=int, default=8, help="todo. (default: None)")
-    group.add_argument("--ra_num_magnitude_bins", type=int, default=31, help="todo. (default: None)")
-    group.add_argument("--ra_interpolation", type=str, default="nearest", help="todo. (default: None)")
+    group.add_argument(
+        "--ra_num_ops", type=int, default=2, help="todo. (default: None)"
+    )
+    group.add_argument(
+        "--ra_magnitude", type=int, default=8, help="todo. (default: None)"
+    )
+    group.add_argument(
+        "--ra_num_magnitude_bins", type=int, default=31, help="todo. (default: None)"
+    )
+    group.add_argument(
+        "--ra_interpolation", type=str, default="nearest", help="todo. (default: None)"
+    )
 
     group.add_argument(
         "--aug-repeats",
@@ -426,7 +554,10 @@ def build_parser():
         help="Number of augmentation repetitions (distributed training only) (default: 0)",
     )
     group.add_argument(
-        "--aug-splits", type=int, default=0, help="Number of augmentation splits (default: 0, valid: 0 or >=2)"
+        "--aug-splits",
+        type=int,
+        default=0,
+        help="Number of augmentation splits (default: 0, valid: 0 or >=2)",
     )
     group.add_argument(
         "--jsd-loss",
@@ -434,21 +565,52 @@ def build_parser():
         default=False,
         help="Enable Jensen-Shannon Divergence + CE loss. Use with `--aug-splits`.",
     )
-    group.add_argument("--bce-loss", action="store_true", default=False, help="Enable BCE loss w/ Mixup/CutMix use.")
+    group.add_argument(
+        "--bce-loss",
+        action="store_true",
+        default=False,
+        help="Enable BCE loss w/ Mixup/CutMix use.",
+    )
     group.add_argument(
         "--bce-target-thresh",
         type=float,
         default=None,
         help="Threshold for binarizing softened BCE targets (default: None, disabled)",
     )
-    group.add_argument("--reprob", type=float, default=0.0, metavar="PCT", help="Random erase prob (default: 0.)")
-    group.add_argument("--remode", type=str, default="pixel", help='Random erase mode (default: "pixel")')
-    group.add_argument("--recount", type=int, default=1, help="Random erase count (default: 1)")
     group.add_argument(
-        "--resplit", action="store_true", default=False, help="Do not random erase first (clean) augmentation split"
+        "--reprob",
+        type=float,
+        default=0.0,
+        metavar="PCT",
+        help="Random erase prob (default: 0.)",
     )
-    group.add_argument("--mixup", type=float, default=0.0, help="mixup alpha, mixup enabled if > 0. (default: 0.)")
-    group.add_argument("--cutmix", type=float, default=0.0, help="cutmix alpha, cutmix enabled if > 0. (default: 0.)")
+    group.add_argument(
+        "--remode",
+        type=str,
+        default="pixel",
+        help='Random erase mode (default: "pixel")',
+    )
+    group.add_argument(
+        "--recount", type=int, default=1, help="Random erase count (default: 1)"
+    )
+    group.add_argument(
+        "--resplit",
+        action="store_true",
+        default=False,
+        help="Do not random erase first (clean) augmentation split",
+    )
+    group.add_argument(
+        "--mixup",
+        type=float,
+        default=0.0,
+        help="mixup alpha, mixup enabled if > 0. (default: 0.)",
+    )
+    group.add_argument(
+        "--cutmix",
+        type=float,
+        default=0.0,
+        help="cutmix alpha, cutmix enabled if > 0. (default: 0.)",
+    )
     group.add_argument(
         "--cutmix-minmax",
         type=float,
@@ -482,14 +644,22 @@ def build_parser():
         metavar="N",
         help="Turn off mixup after this epoch, disabled if 0 (default: 0)",
     )
-    group.add_argument("--smoothing", type=float, default=0.1, help="Label smoothing (default: 0.1)")
+    group.add_argument(
+        "--smoothing", type=float, default=0.1, help="Label smoothing (default: 0.1)"
+    )
     group.add_argument(
         "--train-interpolation",
         type=str,
         default="random",
         help='Training interpolation (random, bilinear, bicubic default: "random")',
     )
-    group.add_argument("--drop", type=float, default=0.0, metavar="PCT", help="Dropout rate (default: 0.)")
+    group.add_argument(
+        "--drop",
+        type=float,
+        default=0.0,
+        metavar="PCT",
+        help="Dropout rate (default: 0.)",
+    )
     group.add_argument(
         "--drop-connect",
         type=float,
@@ -498,24 +668,54 @@ def build_parser():
         help="Drop connect rate, DEPRECATED, use drop-path (default: None)",
     )
     group.add_argument(
-        "--drop-path", "--drop_path", type=float, default=None, metavar="PCT", help="Drop path rate (default: None)"
+        "--drop-path",
+        "--drop_path",
+        type=float,
+        default=None,
+        metavar="PCT",
+        help="Drop path rate (default: None)",
     )
-    group.add_argument("--drop-block", type=float, default=None, metavar="PCT", help="Drop block rate (default: None)")
+    group.add_argument(
+        "--drop-block",
+        type=float,
+        default=None,
+        metavar="PCT",
+        help="Drop block rate (default: None)",
+    )
 
     # Batch norm parameters (only works with gen_efficientnet based models currently)
     group = parser.add_argument_group(
-        "Batch norm parameters", "Only works with gen_efficientnet based models currently."
+        "Batch norm parameters",
+        "Only works with gen_efficientnet based models currently.",
     )
-    group.add_argument("--bn-momentum", type=float, default=None, help="BatchNorm momentum override (if not None)")
-    group.add_argument("--bn-eps", type=float, default=None, help="BatchNorm epsilon override (if not None)")
-    group.add_argument("--sync-bn", action="store_true", help="Enable NVIDIA Apex or Torch synchronized BatchNorm.")
+    group.add_argument(
+        "--bn-momentum",
+        type=float,
+        default=None,
+        help="BatchNorm momentum override (if not None)",
+    )
+    group.add_argument(
+        "--bn-eps",
+        type=float,
+        default=None,
+        help="BatchNorm epsilon override (if not None)",
+    )
+    group.add_argument(
+        "--sync-bn",
+        action="store_true",
+        help="Enable NVIDIA Apex or Torch synchronized BatchNorm.",
+    )
     group.add_argument(
         "--dist-bn",
         type=str,
         default="reduce",
         help='Distribute BatchNorm stats between nodes after each epoch ("broadcast", "reduce", or "")',
     )
-    group.add_argument("--split-bn", action="store_true", help="Enable separate BN layers per augmentation split.")
+    group.add_argument(
+        "--split-bn",
+        action="store_true",
+        help="Enable separate BN layers per augmentation split.",
+    )
 
     # Model Exponential Moving Average
     group = parser.add_argument_group("Model exponential moving average parameters")
@@ -541,9 +741,21 @@ def build_parser():
 
     # Misc
     group = parser.add_argument_group("Miscellaneous parameters")
-    group.add_argument("--pct_to_freeze", type=float, default=1.0, help="percentage of layers to freeze")
-    group.add_argument("--seed", type=int, default=42, metavar="S", help="random seed (default: 42)")
-    group.add_argument("--worker-seeding", type=str, default="all", help="worker seed mode (default: all)")
+    group.add_argument(
+        "--pct_to_freeze",
+        type=float,
+        default=1.0,
+        help="percentage of layers to freeze",
+    )
+    group.add_argument(
+        "--seed", type=int, default=42, metavar="S", help="random seed (default: 42)"
+    )
+    group.add_argument(
+        "--worker-seeding",
+        type=str,
+        default="all",
+        help="worker seed mode (default: all)",
+    )
     group.add_argument(
         "--log-interval",
         "--log_interval",
@@ -568,7 +780,12 @@ def build_parser():
         help="number of checkpoints to keep (default: 10)",
     )
     group.add_argument(
-        "-j", "--workers", type=int, default=4, metavar="N", help="how many training processes to use (default: 4)"
+        "-j",
+        "--workers",
+        type=int,
+        default=4,
+        metavar="N",
+        help="how many training processes to use (default: 4)",
     )
     group.add_argument(
         "--save-images",
@@ -582,12 +799,23 @@ def build_parser():
         default=False,
         help="use NVIDIA Apex AMP or Native AMP for mixed precision training",
     )
-    group.add_argument("--amp-dtype", default="float16", type=str, help="lower precision AMP dtype (default: float16)")
     group.add_argument(
-        "--amp-impl", default="native", type=str, help='AMP impl to use, "native" or "apex" (default: native)'
+        "--amp-dtype",
+        default="float16",
+        type=str,
+        help="lower precision AMP dtype (default: float16)",
     )
     group.add_argument(
-        "--no-ddp-bb", action="store_true", default=False, help="Force broadcast buffers for native DDP to off."
+        "--amp-impl",
+        default="native",
+        type=str,
+        help='AMP impl to use, "native" or "apex" (default: native)',
+    )
+    group.add_argument(
+        "--no-ddp-bb",
+        action="store_true",
+        default=False,
+        help="Force broadcast buffers for native DDP to off.",
     )
     group.add_argument(
         "--pin-mem",
@@ -595,9 +823,18 @@ def build_parser():
         default=False,
         help="Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.",
     )
-    group.add_argument("--no-prefetcher", action="store_true", default=False, help="disable fast prefetcher")
     group.add_argument(
-        "--output", default="", type=str, metavar="PATH", help="path to output folder (default: none, current dir)"
+        "--no-prefetcher",
+        action="store_true",
+        default=False,
+        help="disable fast prefetcher",
+    )
+    group.add_argument(
+        "--output",
+        default="",
+        type=str,
+        metavar="PATH",
+        help="path to output folder (default: none, current dir)",
     )
     group.add_argument(
         "--experiment",
@@ -607,7 +844,11 @@ def build_parser():
         help="name of train experiment, name of sub-folder for output",
     )
     group.add_argument(
-        "--eval-metric", default="top1", type=str, metavar="EVAL_METRIC", help='Best metric (default: "top1"'
+        "--eval-metric",
+        default="top1",
+        type=str,
+        metavar="EVAL_METRIC",
+        help='Best metric (default: "top1"',
     )
     group.add_argument(
         "--tta",
@@ -624,7 +865,10 @@ def build_parser():
         help="use the multi-epochs-loader to save time at the beginning of every epoch",
     )
     group.add_argument(
-        "--log-wandb", action="store_true", default=False, help="log training and validation metrics to wandb"
+        "--log-wandb",
+        action="store_true",
+        default=False,
+        help="log training and validation metrics to wandb",
     )
     group.add_argument(
         "--test_mode",
@@ -639,7 +883,9 @@ def build_parser():
         default=False,
         help="whether to use persistent workers for the dataloader",
     )
-    group.add_argument("--project_name", type=str, default=False, help="Project name for wandb")
+    group.add_argument(
+        "--project_name", type=str, default=False, help="Project name for wandb"
+    )
     group.add_argument(
         "--epochs_step",
         type=int,
@@ -661,10 +907,29 @@ def build_parser():
         default=False,
         help="whether to apply linear probe finetuning strategy",
     )
-    group.add_argument("--stoch_norm", action="store_true", default=False, help="whether to apply stochastic norm")
-    group.add_argument("--sp_reg", type=float, default=0.0, help="SP regularization. Default = 0.")
-    group.add_argument("--cotuning_reg", type=float, default=0.0, help="Co-Tuning regularization. Default = 0.")
-    group.add_argument("--bss_reg", type=float, default=0.0, help="BSS regularization. Default = 0.")
-    group.add_argument("--delta_reg", type=float, default=0.0, help="DELTA regularization. Default = 0.")
+    group.add_argument(
+        "--stoch_norm",
+        action="store_true",
+        default=False,
+        help="whether to apply stochastic norm",
+    )
+    group.add_argument(
+        "--sp_reg", type=float, default=0.0, help="SP regularization. Default = 0."
+    )
+    group.add_argument(
+        "--cotuning_reg",
+        type=float,
+        default=0.0,
+        help="Co-Tuning regularization. Default = 0.",
+    )
+    group.add_argument(
+        "--bss_reg", type=float, default=0.0, help="BSS regularization. Default = 0."
+    )
+    group.add_argument(
+        "--delta_reg",
+        type=float,
+        default=0.0,
+        help="DELTA regularization. Default = 0.",
+    )
 
     return parser

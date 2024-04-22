@@ -1,8 +1,8 @@
 [project]
 name = "quicktune"
-version = "0.0.5.dev1"
+version = "0.0.0.dev0"
 dependencies = [
-  "torch>=1.12.1",
+  "torch",
   "torchvision",
   "torchaudio",
   "ConfigSpace",
@@ -29,6 +29,3 @@ classifiers = [
   'Programming Language :: Python :: 3',
 ]
 license = { file = "LICENSE" }
-
-[project.urls]
-Homepage = "https://github.com/rapanti/quicktune"

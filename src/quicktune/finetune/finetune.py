@@ -18,6 +18,7 @@ Copyright 2020 Ross Wightman (https://github.com/rwightman)
 
 import copy
 import logging
+import logging.handlers
 import os
 import time
 from collections import OrderedDict
@@ -48,14 +49,11 @@ from timm.loss import (
     SoftTargetCrossEntropy,
 )
 from timm.models import (
-    # convert_splitbn_model,
-    # convert_sync_batchnorm,
     create_model,
     load_checkpoint,
     model_parameters,
     resume_checkpoint,
     safe_model_name,
-    # set_fast_norm,
 )
 from timm.layers import convert_splitbn_model, convert_sync_batchnorm, set_fast_norm
 from timm.optim import create_optimizer_v2, optimizer_kwargs
@@ -63,7 +61,7 @@ from timm.scheduler import create_scheduler_v2, scheduler_kwargs
 from timm.utils import ApexScaler, NativeScaler
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
 
-from quicktune.finetune.utils.custom import create_loader
+from .utils.custom_timm import create_loader
 
 from quicktune.finetune.utils.finetuning_stategies import (
     BatchSpectralShrinkage,
@@ -119,11 +117,13 @@ try:
 except ImportError:
     has_synetune = False
 
-_logger = logging.getLogger("finetune")
+
+logger = logging.getLogger("finetune")
+
 
 
 def main(args, args_text):
-    utils.setup_default_logging()
+    # utils.setup_default_logging()
     device_count = torch.cuda.device_count()
     if torch.cuda.is_available():
         cuda.matmul.allow_tf32 = True
@@ -131,12 +131,12 @@ def main(args, args_text):
     args.prefetcher = not args.no_prefetcher
     device = utils.init_distributed_device(args)
     if args.distributed:
-        _logger.info(
+        logger.info(
             "Training in distributed mode with multiple processes, 1 device per process."
             f"Process {args.rank}, total {args.world_size}, device {args.device}."
         )
     else:
-        _logger.info(f"Training with a single process on 1 device ({args.device}).")
+        logger.info(f"Training with a single process on 1 device ({args.device}).")
     assert args.rank >= 0
 
     if utils.is_primary(args) and args.log_wandb:
@@ -144,7 +144,7 @@ def main(args, args_text):
             project_name = args.project_name
             wandb.init(project=project_name, name=args.experiment, config=args)
         else:
-            _logger.warning(
+            logger.warning(
                 "You've requested to log metrics to wandb but package not found. "
                 "Metrics not being logged to wandb, try `pip install wandb`"
             )
@@ -245,7 +245,7 @@ def main(args, args_text):
         model.set_grad_checkpointing(enable=True)
 
     if utils.is_primary(args):
-        _logger.info(
+        logger.info(
             f"Model {safe_model_name(args.model)} created, param count:{sum([m.numel() for m in model.parameters()])}"
         )
 
@@ -285,7 +285,7 @@ def main(args, args_text):
         else:
             model = convert_sync_batchnorm(model)
         if utils.is_primary(args):
-            _logger.info(
+            logger.info(
                 "Converted model to use Synchronized BatchNorm. WARNING: You may have issues if using "
                 "zero initialized BN layers (enabled by default for ResNets) while sync-bn enabled."
             )
@@ -311,7 +311,7 @@ def main(args, args_text):
             batch_ratio = batch_ratio**0.5
         args.lr = args.lr_base * batch_ratio
         if utils.is_primary(args):
-            _logger.info(
+            logger.info(
                 f"Learning rate ({args.lr}) calculated from base learning rate ({args.lr_base}) "
                 f"and global batch size ({global_batch_size}) with {args.lr_base_scale} scaling."
             )
@@ -370,16 +370,16 @@ def main(args, args_text):
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
         loss_scaler = ApexScaler()
         if utils.is_primary(args):
-            _logger.info("Using NVIDIA APEX AMP. Training in mixed precision.")
+            logger.info("Using NVIDIA APEX AMP. Training in mixed precision.")
     elif use_amp == "native":
         amp_autocast = partial(torch.autocast, device_type=device.type, dtype=amp_dtype)
         if device.type == "cuda":
             loss_scaler = NativeScaler()
         if utils.is_primary(args):
-            _logger.info("Using native Torch AMP. Training in mixed precision.")
+            logger.info("Using native Torch AMP. Training in mixed precision.")
     else:
         if utils.is_primary(args):
-            _logger.info("AMP not enabled. Training in float32.")
+            logger.info("AMP not enabled. Training in float32.")
 
     # optionally resume from a checkpoint
     resume_epoch = None
@@ -409,11 +409,11 @@ def main(args, args_text):
         if has_apex and use_amp == "apex":
             # Apex DDP preferred unless native amp is activated
             if utils.is_primary(args):
-                _logger.info("Using NVIDIA APEX DistributedDataParallel.")
+                logger.info("Using NVIDIA APEX DistributedDataParallel.")
             model = ApexDDP(model, delay_allreduce=True)
         else:
             if utils.is_primary(args):
-                _logger.info("Using native Torch DistributedDataParallel.")
+                logger.info("Using native Torch DistributedDataParallel.")
             model = NativeDDP(
                 model, device_ids=[device], broadcast_buffers=not args.no_ddp_bb
             )
@@ -660,7 +660,7 @@ def main(args, args_text):
         eval_metrics = {"loss": -1, "top1": -1, "top5": -1}
 
     if utils.is_primary(args):
-        _logger.info(
+        logger.info(
             f'Scheduled epochs: {num_epochs}. LR stepped per {"epoch" if lr_scheduler.t_in_epochs else "update"}.'
         )
 
@@ -721,7 +721,7 @@ def main(args, args_text):
 
             if args.distributed and args.dist_bn in ("broadcast", "reduce"):
                 if utils.is_primary(args):
-                    _logger.info("Distributing BatchNorm running means and vars")
+                    logger.info("Distributing BatchNorm running means and vars")
                 utils.distribute_bn(model, args.world_size, args.dist_bn == "reduce")
 
             eval_metrics = validate(
@@ -786,7 +786,7 @@ def main(args, args_text):
         pass
 
     if best_metric is not None:
-        _logger.info("*** Best metric: {0} (epoch {1})".format(best_metric, best_epoch))
+        logger.info("*** Best metric: {0} (epoch {1})".format(best_metric, best_epoch))
 
     if args.test_mode:
         with open(os.path.join(current_dir, "experiments", "results.txt"), "a+") as f:
@@ -947,7 +947,7 @@ def train_one_epoch(
             if utils.is_primary(args):
                 # fixing the batch_idx and last_idx
 
-                _logger.info(
+                print(
                     "Train: {} [{:>4d}/{} ({:>3.0f}%)]  "
                     "Loss: {loss.val:#.4g} ({loss.avg:#.3g})  "
                     "Time: {batch_time.val:.3f}s, {rate:>7.2f}/s  "
@@ -1086,7 +1086,7 @@ def validate(
                 last_batch or batch_idx % args.log_interval == 0
             ):
                 log_name = "Test" + log_suffix
-                _logger.info(
+                logger.info(
                     "{0}: [{1:>4d}/{2}]  "
                     "Time: {batch_time.val:.3f} ({batch_time.avg:.3f})  "
                     "Loss: {loss.val:>7.4f} ({loss.avg:>6.4f})  "
