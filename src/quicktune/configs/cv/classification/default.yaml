@@ -1,9 +1,9 @@
 metaset:
   load_only_dataset_descriptors: true
   model_args_first: true
-  root: /home/evilknivl/projects/edit-qt-mds/mtlbm-metadataset
+  root: "*mtlbm*"
   standardize_num_hps: true
-  version: mini
+  version: micro
 
 configuration-manager:
   path: "*mtlbm*"
@@ -13,7 +13,7 @@ optimizer:
   surrogate:
     cost_aware: true
     cost_predictor:
-      in_features: null
+      in_features: "auto"
       hidden_features: 32
       in_curve_dim: 1
       out_curve_dim: 16
@@ -23,7 +23,7 @@ optimizer:
       enc_num_layers: 0
     feature_extractor:
       hidden_features: 32
-      in_features: null
+      in_features: "auto"
       in_curve_dim: 1
       out_curve_dim: 16
       in_meta_features: 4
@@ -49,8 +49,9 @@ optimizer:
   num_configs: 100
 
 
-  load_from_pretrained: true
-  pretrained_path: "/home/evilknivl/projects/quicktunetool/scripts/.cache/meta/model.pt"
+  load_from_pretrained: false
+  # pretrained_path: "/home/evilknivl/projects/quicktunetool/scripts/.cache/meta/model.pt"
+  pretrained_path: ""
   meta_train: true
 
 experiment:
@@ -58,7 +59,7 @@ experiment:
   train-split: train
   val-split: val
   num_classes: 10
-  data_path: "/home/evilknivl/projects/datasets/imagenettest"
-  metafeatures: null
+  data_path: "/work/dlclarge2/rapanti-quicktune/datasets/imagenettest10-320"
+  metafeatures: "auto"
   output_dir: experiment
   budget: 50

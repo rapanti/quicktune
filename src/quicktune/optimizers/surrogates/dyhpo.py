@@ -5,6 +5,8 @@ import gpytorch
 import torch
 import torch.nn as nn
 
+from .surrogate import Surrogate
+
 
 class ConvNet(nn.Module):
     def __init__(self, in_channels: int, output_dim: int):
@@ -34,7 +36,7 @@ class ConvNet(nn.Module):
 
 class MLP(nn.Module):
     def __init__(self, in_features: int, hidden_features: list[int], out_features: int):
-        super(MLP, self).__init__()
+        super().__init__()
         self.input_size = in_features
         self.hidden_sizes = hidden_features
         self.output_size = out_features
@@ -63,10 +65,6 @@ class MLP(nn.Module):
 
 
 class FeatureExtractor(nn.Module):
-    """
-    The feature extractor that is part of the deep kernel.
-    """
-
     def __init__(
         self,
         in_features: int,
@@ -80,7 +78,6 @@ class FeatureExtractor(nn.Module):
         enc_slice_ranges: Optional[List[int,]] = None,
     ):
         super().__init__()
-
         if enc_slice_ranges is not None:
             assert enc_slice_ranges[-1] < in_features
             _slices = [0] + enc_slice_ranges + [in_features]
@@ -180,7 +177,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)  # type: ignore
 
 
-class DyHPO(nn.Module):
+class DyHPO(Surrogate):
     """
     The DyHPO DeepGP model. This version of DyHPO also includes a Cost Predictor.
     """
@@ -188,8 +185,10 @@ class DyHPO(nn.Module):
     def __init__(
         self,
         configuration: Dict,
+        *args,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(*args, **kwargs)
         self.configuration = configuration
         self.feature_extractor = self._get_feature_extractor()
         self.gp_model, self.likelihood, self.mll = self._get_gp_likelihood_mll()
@@ -242,13 +241,18 @@ class DyHPO(nn.Module):
 
     def train_pipeline(self, data: Dict[str, torch.Tensor]):
         """
-        Train the surrogate model.
+        Trains the pipeline using the provided data.
 
-        Args:
-            data: A dictionary which has the training examples, training features,
-                training budgets and in the end the training curves.
-            load_checkpoint: A flag whether to load the state from a previous checkpoint,
-                or whether to start from scratch.
+        Args
+        ----
+        data : Dict[str, torch.Tensor]
+            A dictionary containing the input data for training.
+            It should contain the following keys:
+                - "args": Tensor containing the input arguments.
+                - "budgets": Tensor containing the budgets.
+                - "curves": Tensor containing the curves.
+                - "targets": Tensor containing the target values.
+                - "metafeatures" (optional): Tensor containing the metafeatures.
         """
         self.iterations += 1
         self.train()
@@ -280,8 +284,7 @@ class DyHPO(nn.Module):
             # skip batches with only one element
             if x.size(0) == 1:
                 continue
-
-            # Zero backprop gradients
+            
             optimizer.zero_grad()
 
             projected_x = self.feature_extractor(x, budgets, curves, metafeatures)
@@ -289,9 +292,8 @@ class DyHPO(nn.Module):
             output = self.gp_model(projected_x)
 
             try:
-                # Calc loss and backprop derivatives
+                # Calc Loss and Backprop
                 loss = -self.mll(output, self.gp_model.train_targets)  # type: ignore
-                # TODO
                 loss.backward()
                 optimizer.step()
             except Exception as training_error:

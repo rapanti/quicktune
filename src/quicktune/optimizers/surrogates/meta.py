@@ -2,10 +2,10 @@ import os
 from typing import Optional
 
 import torch
-from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from quicktune.data import DataLoader, MetaSet
+from quicktune.optimizers.surrogates.surrogate import Surrogate
 
 
 class MetaTrainer:
@@ -36,8 +36,40 @@ class MetaTrainer:
 
 
 class PerfMetaTrainer(MetaTrainer):
+    """
+    A class for training a performance meta-model.
 
-    def train(self, model: nn.Module, dataset: MetaSet):
+    Args:
+        MetaTrainer: The base class for meta-trainers.
+
+    Attributes:
+        device (str): The device to use for training.
+        batch_size (int): The batch size for training.
+        lr (float): The learning rate for the optimizer.
+        use_scheduler (bool): Whether to use a learning rate scheduler.
+        train_iter (int): The number of training iterations.
+        val_freq (int): The frequency of validation during training.
+        val_iter (int): The number of validation iterations.
+        save_path (str): The path to save the trained model.
+
+    Methods:
+        train(model, dataset): Trains the performance meta-model.
+        validate(model, loader): Validates the performance meta-model.
+
+    """
+
+    def train(self, model: Surrogate, dataset: MetaSet):
+        """
+        Trains the surrogate on the performance predictions.
+
+        Args:
+            model (Surrogate): The performance meta-model.
+            dataset (MetaSet): The dataset for training.
+
+        Returns:
+            Surrogate: The trained performance meta-model.
+
+        """
         device = self.device
 
         loader = DataLoader(dataset, self.batch_size)
@@ -83,6 +115,17 @@ class PerfMetaTrainer(MetaTrainer):
         return model
 
     def validate(self, model, loader):
+        """
+        Validates the performance meta-model.
+
+        Args:
+            model: The performance meta-model.
+            loader: The data loader for validation.
+
+        Returns:
+            float: The validation error.
+
+        """
         device = self.device
         val_error = 0
         loss_fn = torch.nn.MSELoss()
@@ -104,9 +147,26 @@ class PerfMetaTrainer(MetaTrainer):
 
 
 class CostMetaTrainer(MetaTrainer):
+    """
+    A class representing a meta-trainer for cost prediction models.
+
+    Attributes:
+        ckpt_name (str): The name of the checkpoint file to save the trained model.
+    """
+
     ckpt_name: str = "cost_predictor.pt"
 
-    def train(self, model: nn.Module, dataset: MetaSet):
+    def train(self, model: Surrogate, dataset: MetaSet):
+        """
+        Trains the cost prediction model using the provided dataset.
+
+        Args:
+            model (Surrogate): The cost predictor to train.
+            dataset (MetaSet): The dataset containing all the training data.
+
+        Returns:
+            Surrogate: The trained cost predictor.
+        """
         device = self.device
         model.to(device)
         model.train()
@@ -151,6 +211,7 @@ class CostMetaTrainer(MetaTrainer):
         return model
 
     def validate(self, model, loader):
+        """Validates the cost prediction model."""
         device = self.device
         val_loss = 0
         criterion = torch.nn.MSELoss()

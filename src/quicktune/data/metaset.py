@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 import pandas as pd
 import torch
 
-from ..configuration_manager import ConfigurationManager
+# from ..config_manager import ConfigManager
 
 NUM_HPS_TO_STD = [
     "bss_reg",
@@ -57,7 +57,7 @@ class MetaSet:
         self.datasets, self.ds_to_exp_ids = self._get_info()
 
     def _load_data(self) -> pd.DataFrame:
-        path = os.path.join(self.path, "args", "preprocessed_args_table.csv")
+        path = os.path.join(self.path, "args", "table.csv")
         df = pd.read_csv(path, index_col=0)
 
         if self.standardize_num_hps:

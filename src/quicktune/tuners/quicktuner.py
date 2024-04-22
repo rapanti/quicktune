@@ -2,27 +2,28 @@ import json
 import os
 import shutil
 import time
-from typing import Any, Callable, Dict
+from typing import Callable, Dict, Optional
 
-from ConfigSpace import Configuration
 import torch
+from ConfigSpace import Configuration
 
-from quicktune.utils import get_dataset_metafeatures
-from quicktune.optimizers.quicktune import QuickTuneOptimizer
+from quicktune.config_manager import ConfigManager
 from quicktune.data.metaset import MetaSet
-from quicktune.configuration_manager import ConfigurationManager
+from quicktune.optimizers.quickoptimizer import QuickTuneOptimizer
+from quicktune.utils import get_dataset_metafeatures
 
 
 class QuickTuner:
-    output_dir: str = "."
+    output_dir: str = "exp"
+    task_info: Optional[dict]
 
     def __init__(
         self,
         config: dict,
         optimizer: QuickTuneOptimizer,
-        searchspace: ConfigurationManager,
+        searchspace: ConfigManager,
         metadataset: MetaSet,
-        objective_function: Callable[[dict[str, Any]], dict[str, Any]],
+        objective_function: Callable[[dict], dict],
         **kwargs,
     ) -> None:
         self.config = config["experiment"]
@@ -35,7 +36,7 @@ class QuickTuner:
         self.objective_function = objective_function
 
         self.output_dir = kwargs.pop("output_dir", self.output_dir)
-        print(f"Output dir: {self.output_dir}")
+        self.task_info = kwargs.pop("task_info", None)
 
     def run(
         self,
@@ -71,25 +72,22 @@ class QuickTuner:
                 perf_curves[str(hp_index)] = []
 
             suggested_config = orig_configs[hp_index]
-            ft_config = from_cs_to_ft_config(suggested_config)
-
-            config_id = str(hp_index)
+            ft_config = suggested_config.get_dictionary()
 
             torch.cuda.empty_cache()
             func_config = {
                 "hp_config": ft_config,
                 "output": output,
-                "experiment": config_id,
+                "experiment": str(hp_index),
                 "data_path": self.data_path,
                 "budget": budget,
                 "task_info": task_info,
             }
             result = self.objective_function(func_config)
-            print(result)
 
             score = result["score"]
             status = result["status"]
-            
+
             if score == 1 or budget >= 50:
                 self.optimizer.converged_configs.append(hp_index)
 
@@ -107,7 +105,7 @@ class QuickTuner:
                 # save best config
                 # move file to output folder
                 shutil.copy(
-                    os.path.join(output, config_id, "last.pth.tar"),
+                    os.path.join(output, str(hp_index), "last.pth.tar"),
                     os.path.join(self.output_dir, "best_model.pt"),
                 )
 

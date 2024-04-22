@@ -1,3 +1,3 @@
-from .quicktune import QuickTuner
+from .quicktuner import QuickTuner
 
 __all__ = ["QuickTuner"]

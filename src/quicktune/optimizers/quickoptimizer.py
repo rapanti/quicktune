@@ -7,12 +7,11 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
-from torch import nn
-from torch import Tensor
 from scipy.stats import norm
 
+from .surrogates.surrogate import Surrogate
+from quicktune.config_manager import ConfigManager
 from quicktune.data import MetaSet
-from quicktune.configuration_manager import ConfigurationManager
 
 
 class QuickTuneOptimizer:
@@ -50,8 +49,8 @@ class QuickTuneOptimizer:
 
     def __init__(
         self,
-        surrogate: nn.Module,
-        config_manager: ConfigurationManager,
+        surrogate: Surrogate,
+        config_manager: ConfigManager,
         metaset: MetaSet,
         num_configs: int,
         metafeatures: Optional[torch.Tensor] = None,
@@ -146,7 +145,7 @@ class QuickTuneOptimizer:
 
         return data
 
-    def _train_surrogate(self):
+    def _fit_surrogate(self):
         """
         Train the surrogate model with the observed hyperparameter configurations.
         """
@@ -154,7 +153,9 @@ class QuickTuneOptimizer:
         self.surrogate.to(self.device)
         self.surrogate.train_pipeline(data)
 
-    def _predict(self) -> Tuple[Tensor, Tensor, Optional[Tensor], List, np.ndarray]:
+    def _predict(
+        self,
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], List, np.ndarray]:
         """
         Predict the performances of the hyperparameter configurations
         as well as the standard deviations based on the surrogate model.
@@ -239,7 +240,10 @@ class QuickTuneOptimizer:
             std_predictions = std_predictions.cpu().detach().numpy()
 
             best_prediction_index = self.find_suggested_config(
-                mean_predictions, std_predictions, non_scaled_budgets, costs
+                mean_predictions,
+                std_predictions,
+                non_scaled_budgets,
+                costs,
             )
             """
             the best prediction index is not always matching with the actual hp index.
@@ -315,7 +319,7 @@ class QuickTuneOptimizer:
             if self.no_improvement_patience == self.no_improvement_threshold:
                 self.surrogate.restart = True  # type: ignore
 
-            self._train_surrogate()
+            self._fit_surrogate()
 
             train_time_end = time.time()
             train_time_duration = train_time_end - train_time_start
@@ -444,7 +448,7 @@ class QuickTuneOptimizer:
         best_value: float,
         mean: float,
         std: float,
-        explore_factor: float = 0.,
+        explore_factor: float = 0.0,
         acq_fc: str = "ei",
         cost: float = 1,
     ) -> np.ndarray | float:
@@ -496,8 +500,8 @@ class QuickTuneOptimizer:
 
     def find_suggested_config(
         self,
-        mean_predictions: torch.Tensor,
-        mean_stds: torch.Tensor,
+        mean_predictions: np.ndarray,
+        mean_stds: np.ndarray,
         budgets: np.ndarray,
         costs: Optional[torch.Tensor] = None,
     ) -> int:
@@ -506,9 +510,9 @@ class QuickTuneOptimizer:
 
         Args
         ----
-        mean_predictions: torch.Tensor
+        mean_predictions: np.ndarray
             The mean predictions of the surrogate model.
-        mean_stds: torch.Tensor
+        mean_stds: np.ndarray
             The standard deviations of the surrogate model.
         budgets: np.ndarray
             The budgets of the hyperparameter configurations.
@@ -523,8 +527,7 @@ class QuickTuneOptimizer:
         highest_acq_value = np.NINF
         best_index = -1
 
-        index = 0
-        for mean_value, std in zip(mean_predictions, mean_stds):
+        for index, (mean_value, std) in enumerate(zip(mean_predictions, mean_stds)):
             budget = int(budgets[index])
             cost = costs[index] if costs is not None else 1
             best_value = self.calculate_fidelity_ymax(budget)
@@ -532,16 +535,14 @@ class QuickTuneOptimizer:
                 best_value,
                 mean_value,
                 std,
-                acq_fc=self.acq_func,
                 explore_factor=self.explore_factor,
+                acq_fc=self.acq_func,
                 cost=cost,
             )
             if acq_value > highest_acq_value:
-                print(f"Acq: {acq_value}, index: {index}")
+                # print(f"Acq: {acq_value}, index: {index}")
                 highest_acq_value = acq_value
                 best_index = index
-
-            index += 1
 
         return best_index
 

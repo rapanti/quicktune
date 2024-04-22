@@ -1,6 +1,6 @@
 from typing import Dict
 
-from .configuration_manager import get_config_manager
+from .config_manager import get_config_manager
 from .data import get_metaset
 from .optimizers import get_qt_optimizer
 

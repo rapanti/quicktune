@@ -8,6 +8,15 @@ from .metaset import MetaSet
 
 
 class DataLoader:
+    """
+    Data loader for the meta dataset, that generates batches for training or evaluation.
+
+    Args:
+        dataset (MetaSet): The meta dataset to load data from.
+        batch_size (int): The batch size.
+        seed (Optional[int]): The random seed for splitting the dataset into train and validation sets.
+    """
+
     def __init__(
         self,
         dataset: MetaSet,
@@ -25,6 +34,19 @@ class DataLoader:
     def get_batch(
         self, mode: str = "train", metric: str = "eval_top1"
     ) -> dict[str, torch.Tensor]:
+        """
+        Get a batch of data from the dataset.
+
+        Args:
+            mode (str): The mode of operation. Can be either "train" or "val".
+            metric (str): The evaluation metric to use.
+
+        Returns:
+            dict[str, torch.Tensor]: A dictionary containing the batch of data.
+
+        Raises:
+            AssertionError: If an unknown mode is provided.
+        """
         assert mode in ["train", "val"], f"Unknown mode: {mode}"
 
         if mode == "train":

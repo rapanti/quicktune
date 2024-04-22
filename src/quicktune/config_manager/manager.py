@@ -11,7 +11,7 @@ from ConfigSpace.read_and_write import json as cs_json
 from quicktune.data import metaset
 
 
-class ConfigurationManager:
+class ConfigManager:
     """
     A class for managing configurations and performing preprocessing operations.
 
@@ -48,7 +48,7 @@ class ConfigurationManager:
         self.cs = configspace
 
     @classmethod
-    def from_json_file(cls, json_path: str) -> ConfigurationManager:
+    def from_json_file(cls, json_path: str) -> ConfigManager:
         """
         Creates a ConfigurationManager object from a JSON file.
 
@@ -162,7 +162,8 @@ class ConfigurationManager:
 
         return df
 
-    def config_id(self, config: Configuration) -> str:
+    @staticmethod
+    def config_id(config: Configuration) -> str:
         """
         Generates a unique identifier for a configuration object.
 

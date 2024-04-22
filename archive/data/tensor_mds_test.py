@@ -5,7 +5,7 @@ import os
 from quicktune.data.tensormetadataset import TensorMetaDataset
 from quicktune.meta_train.cost_metatrain import cost_meta_train
 from quicktune.meta_train.perf_mt_test import perf_meta_train
-from quicktune.optimizers.quicktune import QuickTuneOptimizer
+from quicktune.optimizers.quickoptimizer import QuickTuneOptimizer
 from quicktune.optimizers.surrogates import DyHPO
 from quicktune.tools.searchspace import SearchSpace
 
