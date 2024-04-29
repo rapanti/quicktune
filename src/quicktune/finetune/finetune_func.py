@@ -1,10 +1,12 @@
 import os
 
 import pandas as pd
+import torch
 import yaml
 
 from quicktune.finetune import finetune
 from quicktune.finetune.utils.build_parser import build_parser
+from quicktune.utils.qt_utils import QTaskStatus, QTunerResult
 
 
 hp_list = [
@@ -104,29 +106,31 @@ def eval_finetune_conf(config: dict):
     parser = build_parser()
     args, _ = parser.parse_known_args(args)
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
+    args.verbose = True if verbose else False
 
     try:
+        torch.cuda.empty_cache()
         finetune.main(args, args_text)
     except Exception as e:
         if verbose:
             print("Error:", e)
-        out = {
-            "score": 0.0,
-            "time": 0.0,
-            "status": "Error",
-            "info": str(e),
-        }
-        return out
+        result = QTunerResult(
+            score=-1,
+            time=-1,
+            status=QTaskStatus.ERROR,
+            info=str(e),
+        )
+        return result
 
     # read last line of txt
     summary = pd.read_csv(os.path.join(output_dir, "summary.csv"))
     eval_top1 = summary["eval_top1"].iloc[-1]
     eval_time = summary["eval_time"].iloc[-1]
 
-    out = {
-        "score": eval_top1,
-        "time": eval_time,
-        "status": "Success",
-    }
+    result = QTunerResult(
+        score=eval_top1,
+        time=eval_time,
+        status=QTaskStatus.SUCCESS,
+    )
 
-    return out
+    return result

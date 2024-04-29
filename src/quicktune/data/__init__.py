@@ -1,5 +1,5 @@
-from .dataloader import DataLoader
+from .metaloader import MetaLoader
 from .factory import get_metaset
 from .metaset import MetaSet
 
-__all__ = ["DataLoader", "MetaSet", "get_metaset"]
+__all__ = ["MetaLoader", "MetaSet", "get_metaset"]

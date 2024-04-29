@@ -7,59 +7,17 @@ metaset:
 
 configuration-manager:
   path: "*mtlbm*"
-  configspace: null
 
 optimizer:
   surrogate:
-    cost_aware: true
     cost_predictor:
-      in_features: "auto"
-      hidden_features: 32
-      in_curve_dim: 1
-      out_curve_dim: 16
-      in_meta_features: 4
-      out_meta_features: 16
-      out_features: 32
-      enc_num_layers: 0
+      in_features: 71
     feature_extractor:
-      hidden_features: 32
-      in_features: "auto"
-      in_curve_dim: 1
-      out_curve_dim: 16
-      in_meta_features: 4
-      out_meta_features: 16
-      out_features: 32
+      in_features: 71
       enc_num_layers: 2
       enc_slice_ranges:
         - 24
-
-    meta-train: false
-    meta-train-config:
-      batch_size: 128
-      lr: 0.0001
-      patience: 10
-      train_iter: 1000
-      val_iter: 50
-      val_freq: 20
-      weight_decay: 0.0
-      use_scheduler: true
-  
-    lr: 0.0001
-    
+    lr: 0.001
   num_configs: 100
-
-
-  load_from_pretrained: false
-  # pretrained_path: "/home/evilknivl/projects/quicktunetool/scripts/.cache/meta/model.pt"
-  pretrained_path: ""
-  meta_train: true
-
-experiment:
-  dataset: imagenetest
-  train-split: train
-  val-split: val
-  num_classes: 10
-  data_path: "/work/dlclarge2/rapanti-quicktune/datasets/imagenettest10-320"
-  metafeatures: "auto"
-  output_dir: experiment
-  budget: 50
+  load_from_pretrained: true
+  pretrained_path: "*mtlbm*"

@@ -7,7 +7,7 @@ import torch
 from .metaset import MetaSet
 
 
-class DataLoader:
+class MetaLoader:
     """
     Data loader for the meta dataset, that generates batches for training or evaluation.
 
@@ -50,8 +50,8 @@ class DataLoader:
         assert mode in ["train", "val"], f"Unknown mode: {mode}"
 
         if mode == "train":
-            name = random.choice(self.train_split)
-            return self.dataset.get_batch(self.batch_size, metric, name)
+            dname = random.choice(self.train_split)
+            return self.dataset.get_batch(self.batch_size, metric, dname)
         else:
-            name = random.choice(self.val_split)
-            return self.dataset.get_batch(self.batch_size, metric, name)
+            dname = random.choice(self.val_split)
+            return self.dataset.get_batch(self.batch_size, metric, dname)

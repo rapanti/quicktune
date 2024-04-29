@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 import pandas as pd
 import torch
 
-# from ..config_manager import ConfigManager
+from quicktune.config_manager import ConfigManager
 
 NUM_HPS_TO_STD = [
     "bss_reg",
@@ -36,27 +36,31 @@ class MetaSet:
         self,
         root: str,
         version: str,
+        config_manager: ConfigManager,
         standardize_num_hps: bool = True,
         model_args_first: bool = True,
         load_only_dataset_descriptors=True,
         return_tensor: bool = True,
+        sort_hp: bool = True,
     ):
         self.root = root
         self.version = version
+        self.cm = config_manager
         self.standardize_num_hps = standardize_num_hps
         self.model_args_first = model_args_first
         self.load_only_dataset_descriptors = load_only_dataset_descriptors
         self.return_tensor = return_tensor
+        self.sort_hp = sort_hp
 
         self.path = os.path.join(self.root, self.version)
 
-        self.configs_df = self._load_data()
-        self.curve_names = ["eval_top1", "total_time"]
+        self.configs_df = self._load_configs()
+        self.curve_metrics = ["eval_top1", "time"]
         self.curves = self._load_curves()
         self.metafeatures = self._load_metafeatures()
         self.datasets, self.ds_to_exp_ids = self._get_info()
 
-    def _load_data(self) -> pd.DataFrame:
+    def _load_configs(self) -> pd.DataFrame:
         path = os.path.join(self.path, "args", "table.csv")
         df = pd.read_csv(path, index_col=0)
 
@@ -69,19 +73,22 @@ class MetaSet:
                 df[NUM_HPS_TO_STD] - self.num_args_mean / self.num_args_std
             )
 
-        if self.model_args_first:
-            model_args = [col for col in df.columns if col.startswith("cat=model")]
-            others = [col for col in df.columns if col not in model_args]
-            df = df[model_args + others]
+        # if self.model_args_first:
+        #     model_args = [col for col in df.columns if col.startswith("cat:model")]
+        #     others = [col for col in df.columns if col not in model_args]
+        #     df = df[model_args + others]
+        if self.sort_hp:
+            self.cm.sort_hp(True, True)
+            df = df.reindex(self.cm.get_one_hot_enc_names(), axis=1)
 
         df = df.astype(float)
         df = df.fillna(-1)
         return df
 
-    def _load_curves(self) -> dict:
+    def _load_curves(self):
         path = os.path.join(self.path, "curves")
         curves = {}
-        for curve in self.curve_names:
+        for curve in self.curve_metrics:
             data = json.load(open(os.path.join(path, f"{curve}.json")))
             curves[curve] = data
         return curves
@@ -98,7 +105,7 @@ class MetaSet:
     def _get_info(self) -> Tuple[List[str], dict[str, List[int]]]:
         datasets = list(self.metafeatures.keys())
         ds_exp_ids = {}
-        curve = self.curve_names[0]
+        curve = self.curve_metrics[0]
         for dataset in datasets:
             exp_ids = list(self.curves[curve][dataset].keys())
             exp_ids = list(map(int, exp_ids))
@@ -109,52 +116,50 @@ class MetaSet:
         return len(self.configs_df)
 
     def get_batch(
-        self, batch_size: int, curve: str = "eval_top1", dataset: Optional[str] = None
+        self,
+        batch_size: int,
+        metric: str = "eval_top1",
+        dataset: Optional[str] = None,
     ) -> dict[str, torch.Tensor]:
         if dataset is None:
             dataset = random.choice(self.datasets)
-        else:
-            assert dataset in self.datasets, f"{dataset} not found in the metadataset"
-        assert curve in self.curve_names, f"{curve} not found in the metadataset"
+        assert dataset in self.datasets, f"{dataset} not found in the MetaSet"
+        assert metric in self.curve_metrics, f"{metric} not found in the MetaSet"
 
         exp_ids = random.sample(self.ds_to_exp_ids[dataset], batch_size)
 
-        def _get_curves():
-            _targets = []
-            _budgets = []
-            _curves = []
-            for exp in exp_ids:
-                _curve = self.curves[curve][dataset][str(exp)]
-                _budget = random.randint(1, len(_curve))
-                _curve = _curve[:_budget]
-                target = _curve[-1]
-                _curve = _curve[:-1]
-                _curve = _curve + [0] * (50 - len(_curve))
-                _budgets.append(_budget)
-                _curves.append(_curve)
-                _targets.append(target)
-            return _curves, _targets, _budgets
+        curve, target, budget = [], [], []
 
-        args = self.configs_df.loc[exp_ids].values
-        curves, targets, budgets = _get_curves()
-        metafeatures = self.metafeatures[dataset]
-        metafeatures = [metafeatures for _ in range(batch_size)]
+        for idx in exp_ids:
+            crv = self.curves[metric][dataset][str(idx)]
+            bdgt = random.randint(1, len(crv))
+            crv = crv[:bdgt]
+            trgt = crv[-1]
+            crv = crv[:-1]
+            crv = crv + [0] * (50 - len(crv))
+            curve.append(crv)
+            target.append(trgt)
+            budget.append(bdgt)
+
+        config = self.configs_df.loc[exp_ids].values
+        metaftr = self.metafeatures[dataset]
+        metafeat = [metaftr for _ in range(batch_size)]
 
         if self.return_tensor:
-            args = torch.tensor(args, dtype=torch.float32)
-            curves = torch.tensor(curves, dtype=torch.float32) / 100
-            targets = torch.tensor(targets, dtype=torch.float32) / 100
-            budgets = torch.tensor(budgets, dtype=torch.float32) / 50
-            metafeatures = torch.tensor(metafeatures, dtype=torch.float32) / 10000
+            config = torch.tensor(config, dtype=torch.float32)
+            curve = torch.tensor(curve, dtype=torch.float32) / 100
+            target = torch.tensor(target, dtype=torch.float32) / 100
+            budget = torch.tensor(budget, dtype=torch.float32) / 50
+            metafeat = torch.tensor(metafeat, dtype=torch.float32) / 10000
 
-        out = {
-            "args": args,
-            "curves": curves,
-            "targets": targets,
-            "budgets": budgets,
-            "metafeatures": metafeatures,
+        batch = {
+            "config": config,
+            "curve": curve,
+            "budget": budget,
+            "target": target,
+            "metafeat": metafeat,
         }
-        return out
+        return batch
 
     def get_hyperparameters_names(self) -> List[str]:
         return list(self.configs_df.columns)

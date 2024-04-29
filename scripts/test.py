@@ -1,7 +1,8 @@
-from quicktune import QuickTuner, get_qt_config, setup_quicktune
-from quicktune.finetune.utils.finetune_func import eval_finetune_conf
+from quicktune.tuners import QuickTuner
+from quicktune.configs import get_qt_config
+from quicktune.finetune.finetune_func import eval_finetune_conf
 
 if __name__ == "__main__":
-    config = get_qt_config("/work/dlclarge2/rapanti-quicktune/datasets/imagenettest10-320", 1000)
-    ss, md, optimizer = setup_quicktune(config)
-    QuickTuner(config, optimizer, ss, md, eval_finetune_conf).run()
+    config = get_qt_config()
+    qt = QuickTuner(config, eval_finetune_conf)
+    qt.fit("/home/evilknivl/projects/datasets/imagenettest", time_limit=3600)

@@ -2,28 +2,32 @@ import os
 from typing import Optional
 
 import torch
+import torch.nn as nn
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from quicktune.data import DataLoader, MetaSet
-from quicktune.optimizers.surrogates.surrogate import Surrogate
+from quicktune.data import MetaLoader, MetaSet
+# from quicktune.optimizers.surrogates import Surrogate
 
 
 class MetaTrainer:
     batch_size: int = 32
     lr: float = 1e-4
-    train_iter: int = 1000
-    val_iter: int = 50
+    train_iter: int = 10000
+    val_iter: int = 10
     val_freq: int = 20
     use_scheduler: bool = False
     use_cuda: bool = True
     cache_dir: str = ".cache/meta"
     ckpt_name: str = "model.pt"
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(self, config: Optional[dict] = None, **kwargs):
         if config is not None:
             for key, value in config.items():
                 if hasattr(self, key):
                     setattr(self, key, value)
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
         device = "cuda" if self.use_cuda and torch.cuda.is_available() else "cpu"
         self.device = torch.device(device)
@@ -58,7 +62,7 @@ class PerfMetaTrainer(MetaTrainer):
 
     """
 
-    def train(self, model: Surrogate, dataset: MetaSet):
+    def train(self, model: nn.Module, dataset: MetaSet):
         """
         Trains the surrogate on the performance predictions.
 
@@ -72,7 +76,7 @@ class PerfMetaTrainer(MetaTrainer):
         """
         device = self.device
 
-        loader = DataLoader(dataset, self.batch_size)
+        loader = MetaLoader(dataset, self.batch_size)
 
         model.to(device)
         model.train()
@@ -85,13 +89,13 @@ class PerfMetaTrainer(MetaTrainer):
         min_eval_val = float("inf")
         for i in range(self.train_iter):
             batch = loader.get_batch()
-            args = batch["args"].to(device)
-            curves = batch["curves"].to(device)
-            targets = batch["targets"].to(device)
-            budgets = batch["budgets"].to(device)
-            metafeatures = batch["metafeatures"].to(device)
+            config = batch["config"].to(device)
+            budget = batch["budget"].to(device)
+            curve = batch["curve"].to(device)
+            target = batch["target"].to(device)
+            metafeat = batch["metafeat"].to(device)
 
-            loss = model.train_step(args, targets, budgets, curves, metafeatures)
+            loss = model.train_step(config, budget, curve, target, metafeat)
 
             optimizer.zero_grad()
             loss.backward()
@@ -114,6 +118,7 @@ class PerfMetaTrainer(MetaTrainer):
         model = torch.load(self.save_path)
         return model
 
+    @torch.no_grad()
     def validate(self, model, loader):
         """
         Validates the performance meta-model.
@@ -137,11 +142,14 @@ class PerfMetaTrainer(MetaTrainer):
                 batch_train[key] = item.to(device)
             for key, item in batch_test.items():
                 batch_test[key] = item.to(device)
+            
+            target = batch_test.pop("target")
 
             means, _, _ = model.predict_pipeline(batch_train, batch_test)
-            loss = loss_fn(means, batch_test["targets"])
-            val_error += loss.item()
+            loss = loss_fn(means, target)
 
+            val_error += loss.item()
+        
         val_error /= self.val_iter
         return val_error
 
@@ -156,7 +164,7 @@ class CostMetaTrainer(MetaTrainer):
 
     ckpt_name: str = "cost_predictor.pt"
 
-    def train(self, model: Surrogate, dataset: MetaSet):
+    def train(self, model: nn.Module, dataset: MetaSet):
         """
         Trains the cost prediction model using the provided dataset.
 
@@ -171,7 +179,7 @@ class CostMetaTrainer(MetaTrainer):
         model.to(device)
         model.train()
 
-        loader = DataLoader(dataset, self.batch_size)
+        loader = MetaLoader(dataset, self.batch_size)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
         scheduler = None
@@ -182,15 +190,13 @@ class CostMetaTrainer(MetaTrainer):
 
         min_eval_val = float("inf")
         for i in range(self.train_iter):
-            batch = loader.get_batch()
-            args = batch["args"].to(device)
-            curves = batch["curves"].to(device)
-            targets = batch["targets"].to(device)
-            budgets = batch["budgets"].to(device)
-            metafeatures = batch["metafeatures"].to(device)
+            batch = loader.get_batch(metric="time")
+            for key, item in batch.items():
+                batch[key] = item.to(device)
+            target = batch.pop("target")
 
-            logits = model(args, budgets, curves, metafeatures)
-            loss = criterion(logits.reshape(targets.shape), targets)
+            logits = model(**batch)
+            loss = criterion(logits.reshape(target.shape), target)
 
             optimizer.zero_grad()
             loss.backward()
@@ -200,32 +206,32 @@ class CostMetaTrainer(MetaTrainer):
 
             if not i % self.val_freq:
                 model.eval()
-                val_error = self.validate(model, loader)
+
+                val_error = self.validate(model, device, loader)
                 print(f"Step {i}: Validation error: {val_error}")
 
                 if val_error < min_eval_val:
                     min_eval_val = val_error
                     torch.save(model, self.save_path)
                 model.train()
+        
+        # Load the model with the best validation error
         model = torch.load(self.save_path)
         return model
-
-    def validate(self, model, loader):
-        """Validates the cost prediction model."""
-        device = self.device
-        val_loss = 0
+    
+    @torch.no_grad()
+    def validate(self, model, device, loader):
+        val_error = 0
         criterion = torch.nn.MSELoss()
         for _ in range(self.val_iter):
-            batch = loader.get_batch(mode="val")
-            args = batch["args"].to(device)
-            curves = batch["curves"].to(device)
-            targets = batch["targets"].to(device)
-            budgets = batch["budgets"].to(device)
-            metafeatures = batch["metafeatures"].to(device)
+            batch = loader.get_batch(mode="val", metric="time")
+            for key, item in batch.items():
+                batch[key] = item.to(device)
+            target = batch.pop("target")
 
-            logits = model(args, budgets, curves, metafeatures)
-            loss = criterion(logits.reshape(targets.shape), targets)
-            val_loss += loss.item()
+            logits = model(**batch)
+            loss = criterion(logits.reshape(target.shape), target)
+            val_error += loss.item()
 
-        val_loss /= self.val_iter
-        return val_loss
+        val_error /= self.val_iter
+        return val_error

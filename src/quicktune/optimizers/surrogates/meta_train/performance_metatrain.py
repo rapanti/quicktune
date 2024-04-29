@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from quicktune.data import DataLoader, MetaSet
+from quicktune.data import MetaLoader, MetaSet
 
 
 def perf_meta_train(model: nn.Module, dataset: MetaSet, config: dict):
@@ -14,7 +14,7 @@ def perf_meta_train(model: nn.Module, dataset: MetaSet, config: dict):
 
     min_eval_val = float("inf")
 
-    loader = DataLoader(dataset, batch_size)
+    loader = MetaLoader(dataset, batch_size)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)

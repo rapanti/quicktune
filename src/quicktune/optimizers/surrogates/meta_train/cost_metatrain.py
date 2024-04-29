@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from quicktune.data import DataLoader, MetaSet
+from quicktune.data import MetaLoader, MetaSet
 
 
 def cost_meta_train(model: nn.Module, dataset: MetaSet, config: dict):
@@ -14,7 +14,7 @@ def cost_meta_train(model: nn.Module, dataset: MetaSet, config: dict):
     batch_size = meta.get("batch_size", 32)
     with_scheduler = meta.get("with_scheduler", False)
 
-    loader = DataLoader(dataset, batch_size)
+    loader = MetaLoader(dataset, batch_size)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)

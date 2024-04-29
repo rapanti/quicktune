@@ -79,11 +79,12 @@ from quicktune.finetune.utils.utils import (
     get_number_of_classes,
     prepare_model_for_finetuning,
 )
+from quicktune.utils.log_utils import set_logger_verbosity
 
 try:
-    from apex import amp
-    from apex.parallel import DistributedDataParallel as ApexDDP
-    from apex.parallel import convert_syncbn_model
+    from apex import amp  # type: ignore
+    from apex.parallel import DistributedDataParallel as ApexDDP  # type: ignore
+    from apex.parallel import convert_syncbn_model  # type: ignore
 
     has_apex = True
 except ImportError:
@@ -97,7 +98,7 @@ except AttributeError:
     pass
 
 try:
-    import wandb
+    import wandb  # type: ignore
 
     has_wandb = True
 except ImportError:
@@ -111,7 +112,7 @@ except ImportError:
     has_functorch = False
 
 try:
-    from syne_tune import Reporter
+    from syne_tune import Reporter  # type: ignore
 
     has_synetune = True
 except ImportError:
@@ -121,9 +122,9 @@ except ImportError:
 logger = logging.getLogger("finetune")
 
 
-
 def main(args, args_text):
-    # utils.setup_default_logging()
+    verbosity = args.verbosity if hasattr(args, "verbosity") else 1
+    set_logger_verbosity(verbosity, logger)
     device_count = torch.cuda.device_count()
     if torch.cuda.is_available():
         cuda.matmul.allow_tf32 = True
@@ -174,6 +175,7 @@ def main(args, args_text):
 
     if has_synetune and args.report_synetune:
         global report
+        current_dir = os.path.dirname(os.path.realpath(__file__))
         report = Reporter()
         args.data_dir = os.path.join(current_dir, args.data_dir)
         print(args.data_dir)
@@ -250,7 +252,7 @@ def main(args, args_text):
         )
 
     data_config = resolve_data_config(
-        vars(args), model=model, verbose=utils.is_primary(args)
+        vars(args), model=model, verbose=args.verbose
     )
 
     # correct data config mean
@@ -272,7 +274,7 @@ def main(args, args_text):
     # move model to GPU, enable channels last layout if set
     model.to(device=device)
     if args.channels_last:
-        model.to(memory_format=torch.channels_last)
+        model.to(memory_format=torch.channels_last)  # type: ignore
 
     # setup synchronized BatchNorm for distributed training
     if args.distributed and args.sync_bn:
@@ -297,7 +299,7 @@ def main(args, args_text):
 
     if args.aot_autograd:
         assert has_functorch, "functorch is needed for --aot-autograd"
-        model = memory_efficient_fusion(model)
+        model = memory_efficient_fusion(model)  # type: ignore
 
     if args.lr is None:
         global_batch_size = args.batch_size * args.world_size
@@ -387,7 +389,7 @@ def main(args, args_text):
         resume_epoch = resume_checkpoint(
             model,
             args.resume,
-            optimizer=None if args.no_resume_opt else optimizer,
+            optimizer=None if args.no_resume_opt else optimizer,  # type: ignore
             loss_scaler=None if args.no_resume_opt else loss_scaler,
             log_info=utils.is_primary(args),
         )
@@ -684,9 +686,9 @@ def main(args, args_text):
 
             utils.random_seed(args.seed + epoch, args.rank)
             if hasattr(dataset_train, "set_epoch"):
-                dataset_train.set_epoch(epoch)
+                dataset_train.set_epoch(epoch)  # type: ignore
             elif args.distributed and hasattr(loader_train.sampler, "set_epoch"):
-                loader_train.sampler.set_epoch(epoch)
+                loader_train.sampler.set_epoch(epoch)  # type: ignore
 
             if args.linear_probing and (epoch == (num_epochs - start_epoch) // 2):
                 model, head_name = prepare_model_for_finetuning(
@@ -947,7 +949,7 @@ def train_one_epoch(
             if utils.is_primary(args):
                 # fixing the batch_idx and last_idx
 
-                print(
+                logger.debug(
                     "Train: {} [{:>4d}/{} ({:>3.0f}%)]  "
                     "Loss: {loss.val:#.4g} ({loss.avg:#.3g})  "
                     "Time: {batch_time.val:.3f}s, {rate:>7.2f}/s  "
@@ -1086,7 +1088,7 @@ def validate(
                 last_batch or batch_idx % args.log_interval == 0
             ):
                 log_name = "Test" + log_suffix
-                logger.info(
+                logger.debug(
                     "{0}: [{1:>4d}/{2}]  "
                     "Time: {batch_time.val:.3f} ({batch_time.avg:.3f})  "
                     "Loss: {loss.val:>7.4f} ({loss.avg:>6.4f})  "

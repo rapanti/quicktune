@@ -1,10 +1,12 @@
+import os
+
 import torch
 
 from quicktune.data import MetaSet
 from quicktune.optimizers.surrogates.surrogate import Surrogate
 
+from ..meta import CostMetaTrainer, PerfMetaTrainer
 from .dyhpo import DyHPO
-from .meta import CostMetaTrainer, PerfMetaTrainer
 
 
 def get_surrogate(config: dict, metaset: MetaSet) -> Surrogate:
@@ -29,16 +31,16 @@ def get_surrogate(config: dict, metaset: MetaSet) -> Surrogate:
     if config.get("meta-train", False):
         meta_train_config = config["meta-train-config"]
         surrogate = PerfMetaTrainer(meta_train_config).train(surrogate, metaset)
-        surrogate.cost_predictor = CostMetaTrainer().train(
+        surrogate.cost_predictor = CostMetaTrainer(meta_train_config).train(
             surrogate.cost_predictor, metaset
         )
 
     elif config.get("load_from_pretrained", False):
         path = config["pretrained_path"]
+        if path == "*mtlbm*":
+            path = os.path.join("pretrained", "mtlbm", metaset.version, "dyhpo.pt")
         state_dict = torch.load(path, map_location="cpu")
         msg = surrogate.load_state_dict(state_dict)
-        print(f"Loaded model from {path} with message: {msg}")
-        print(f"Loaded model from {path} with message: {msg}")
         print(f"Loaded model from {path} with message: {msg}")
 
     return surrogate

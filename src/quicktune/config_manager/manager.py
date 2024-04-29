@@ -8,12 +8,13 @@ from ConfigSpace import Configuration, ConfigurationSpace
 from ConfigSpace.hyperparameters import CategoricalHyperparameter, Constant
 from ConfigSpace.read_and_write import json as cs_json
 
-from quicktune.data import metaset
+# from quicktune.data import MetaSet
 
 
 class ConfigManager:
     """
-    A class for managing configurations and performing preprocessing operations.
+    A class for defining the configuration space, managing configurations and
+    performing preprocessing operations for the meta-learning framework.
 
     The ConfigurationManager class provides methods for loading configurations from a JSON file,
     sampling configurations from a configuration space, preprocessing configurations by encoding
@@ -46,6 +47,7 @@ class ConfigManager:
 
     def __init__(self, configspace: ConfigurationSpace):
         self.cs = configspace
+        self._one_hot_enc_names: list[str] = []
 
     @classmethod
     def from_json_file(cls, json_path: str) -> ConfigManager:
@@ -79,7 +81,7 @@ class ConfigManager:
         """
         return self.cs.sample_configuration(n)
 
-    def get_one_hot_enc_names(self) -> List[str]:
+    def _set_one_hot_enc_names(self):
         """
         Returns a list of names for one-hot encoded hyperparameters.
 
@@ -109,12 +111,51 @@ class ConfigManager:
             else:
                 # numerical, boolean and ordinal hyperparameters
                 hp_names.append(hp)
-        return hp_names
+        self._one_hot_enc_names = hp_names
+
+    def get_one_hot_enc_names(self) -> List[str]:
+        """
+        Returns a list of names for one-hot encoded hyperparameters.
+
+        This method iterates over the hyperparameters in the configuration space
+        and generates names for one-hot encoded hyperparameters. For categorical
+        hyperparameters, it adds a one-hot encoding for each choice. For conditional
+        hyperparameters, it adds a not-active flag. For numerical, boolean, and
+        ordinal hyperparameters, it adds the hyperparameter name as is.
+
+        Returns:
+            A list of names for one-hot encoded hyperparameters.
+        """
+        if not self._one_hot_enc_names:
+            self._set_one_hot_enc_names()
+
+        return self._one_hot_enc_names
+
+    def sort_hp(self, separate_cat: bool = False, alphabetize: bool = False):
+        """
+        Sets the order of hyperparameters in the configuration space.
+
+        Args:
+            separate_cat (bool, optional): Whether to separate categorical hyperparameters. Defaults to False.
+            alphabetize (bool, optional): Whether to alphabetize hyperparameters. Defaults to False.
+        """
+        if not self._one_hot_enc_names:
+            self._set_one_hot_enc_names()
+
+        if separate_cat:
+            cat_hp = [hp for hp in self._one_hot_enc_names if hp.startswith("cat:")]
+            num_hp = [hp for hp in self._one_hot_enc_names if not hp.startswith("cat:")]
+            if alphabetize:
+                cat_hp.sort()
+                num_hp.sort()
+            self._one_hot_enc_names = cat_hp + num_hp
+        elif alphabetize:
+            self._one_hot_enc_names.sort()
 
     def preprocess_configurations(
         self,
         configurations: List[Configuration],
-        ms: metaset.MetaSet,
+        ms,
         standardize: bool = False,
     ):
         """
@@ -190,4 +231,3 @@ class ConfigManager:
         return num_hp
         """
         raise NotImplementedError
-            
