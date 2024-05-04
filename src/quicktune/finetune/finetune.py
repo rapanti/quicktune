@@ -21,6 +21,7 @@ import logging
 import logging.handlers
 import os
 import time
+from argparse import Namespace
 from collections import OrderedDict
 from contextlib import suppress
 from datetime import datetime
@@ -39,9 +40,9 @@ from timm.data import (
     FastCollateMixup,
     Mixup,
     create_dataset,
-    # create_loader,
     resolve_data_config,
 )
+from timm.layers import convert_splitbn_model, convert_sync_batchnorm, set_fast_norm
 from timm.loss import (
     BinaryCrossEntropy,
     JsdCrossEntropy,
@@ -55,13 +56,10 @@ from timm.models import (
     resume_checkpoint,
     safe_model_name,
 )
-from timm.layers import convert_splitbn_model, convert_sync_batchnorm, set_fast_norm
 from timm.optim import create_optimizer_v2, optimizer_kwargs
 from timm.scheduler import create_scheduler_v2, scheduler_kwargs
 from timm.utils import ApexScaler, NativeScaler
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
-
-from .utils.custom_timm import create_loader
 
 from quicktune.finetune.utils.finetuning_stategies import (
     BatchSpectralShrinkage,
@@ -80,6 +78,8 @@ from quicktune.finetune.utils.utils import (
     prepare_model_for_finetuning,
 )
 from quicktune.utils.log_utils import set_logger_verbosity
+
+from .utils.custom_timm import create_loader
 
 try:
     from apex import amp  # type: ignore
@@ -122,7 +122,7 @@ except ImportError:
 logger = logging.getLogger("finetune")
 
 
-def main(args, args_text):
+def main(args: Namespace):
     verbosity = args.verbosity if hasattr(args, "verbosity") else 1
     set_logger_verbosity(verbosity, logger)
     device_count = torch.cuda.device_count()
@@ -251,9 +251,8 @@ def main(args, args_text):
             f"Model {safe_model_name(args.model)} created, param count:{sum([m.numel() for m in model.parameters()])}"
         )
 
-    data_config = resolve_data_config(
-        vars(args), model=model, verbose=args.verbose
-    )
+    _verbose = args.verbosity > 2
+    data_config = resolve_data_config(vars(args), model=model, verbose=_verbose)
 
     # correct data config mean
     if args.in_chans == 1:
@@ -520,7 +519,7 @@ def main(args, args_text):
         # FIXME reduces validation padding issues when using TFDS, WDS w/ workers and distributed training
         eval_workers = min(2, args.workers)
     loader_eval = create_loader(
-        dataset_eval,
+        dataset_eval,  # type: ignore
         input_size=data_config["input_size"],
         batch_size=args.validation_batch_size or args.batch_size,
         is_training=False,
@@ -626,14 +625,14 @@ def main(args, args_text):
             decreasing=decreasing,
             max_history=args.checkpoint_hist,
         )
-        with open(os.path.join(output_dir, "args.yaml"), "w") as f:
-            f.write(args_text)
+        # with open(os.path.join(output_dir, "args.yaml"), "w") as f:
+        #     f.write(args.as_markdown())
 
     # setup learning rate schedule and starting epoch
     updates_per_epoch = len(loader_train)
     lr_scheduler, num_epochs = create_scheduler_v2(
         optimizer,
-        **scheduler_kwargs(args),
+        **scheduler_kwargs(args),  # type: ignore
         updates_per_epoch=updates_per_epoch,
     )
     start_epoch = 0
@@ -654,7 +653,7 @@ def main(args, args_text):
             loader_eval,
             validate_loss_fn,
             args,
-            amp_autocast=amp_autocast,
+            amp_autocast=amp_autocast,  # type: ignore
             return_features=return_features,
             return_source_output=return_source_output,
         )
@@ -731,13 +730,13 @@ def main(args, args_text):
                 loader_eval,
                 validate_loss_fn,
                 args,
-                amp_autocast=amp_autocast,
+                amp_autocast=amp_autocast,  # type: ignore
                 return_features=return_features,
                 return_source_output=return_source_output,
             )
 
             if has_synetune and args.report_synetune:
-                report(epoch=epoch + 1, eval_accuracy=eval_metrics["top1"])
+                report(epoch=epoch + 1, eval_accuracy=eval_metrics["top1"])  # type: ignore
 
             if model_ema is not None and not args.model_ema_force_cpu:
                 if args.distributed and args.dist_bn in ("broadcast", "reduce"):
@@ -750,7 +749,7 @@ def main(args, args_text):
                     loader_eval,
                     validate_loss_fn,
                     args,
-                    amp_autocast=amp_autocast,
+                    amp_autocast=amp_autocast,  # type: ignore
                     log_suffix=" (EMA)",
                     return_features=return_features,
                     return_source_output=return_source_output,

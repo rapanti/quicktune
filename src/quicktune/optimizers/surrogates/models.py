@@ -19,10 +19,6 @@ class ConvNet(nn.Module):
             nn.ReLU(),
         )
 
-    @classmethod
-    def init_from_config(cls, config: dict) -> "ConvNet":
-        return cls(**config)
-
     def forward(self, x):
         return self.model(x)
 
@@ -66,10 +62,6 @@ class FeatureExtractor(nn.Module):
         for a, b in ranges:
             encoder.append(MLP(b - a, [hidden_feat] * num_layers, hidden_feat))
         return encoder
-
-    @classmethod
-    def init_from_config(cls, config: dict) -> "FeatureExtractor":
-        return cls(**config)
 
     def forward(self, config, budget, curve, metafeat=None):
         budget = torch.unsqueeze(budget, dim=1)
@@ -124,8 +116,10 @@ class CostPredictor(FeatureExtractor):
 
 
 class MLP(nn.Module):
-    def __init__(self, in_features: int, hidden_features: list[int], out_features: int):
+    def __init__(self, in_features: int, hidden_features: int | list[int], out_features: int):
         super().__init__()
+        if isinstance(hidden_features, int):
+            hidden_features = [hidden_features]
         layers = [nn.Linear(in_features, hidden_features[0]), nn.ReLU()]
         for i in range(len(hidden_features) - 1):
             in_ftr, out_ftr = hidden_features[i], hidden_features[i + 1]
@@ -133,10 +127,6 @@ class MLP(nn.Module):
             layers.append(nn.ReLU())
         layers.append(nn.Linear(hidden_features[-1], out_features))
         self.mlp = nn.Sequential(*layers)
-
-    @classmethod
-    def init_from_config(cls, config: dict) -> "MLP":
-        return cls(**config)
 
     def forward(self, x):
         return self.mlp(x)

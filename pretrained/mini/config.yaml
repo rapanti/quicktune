@@ -1,0 +1,7 @@
+extractor:
+  enc_num_layers: 2
+  enc_slice_ranges:
+  - 45
+  in_features: 71
+predictor:
+  in_features: 71

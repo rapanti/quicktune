@@ -49,9 +49,9 @@ def add_log_to_file(
         logger = logging.root
     fh = logging.FileHandler(file_path)
     if fmt is None:
-        fmt = "%(asctime)s - %(name)32s: [%(levelname)8s] - %(message)s"
+        fmt = "%(asctime)s - %(name)16s: [%(levelname)s] %(message)s"
     if datefmt is None:
-        datefmt = "%y-%m-%d %H:%M:%S"
+        datefmt = "%y.%m.%d %H:%M:%S"
     formatter = logging.Formatter(fmt, datefmt)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
@@ -64,9 +64,9 @@ def setup_default_logging(
 ):
     sh = logging.StreamHandler()
     if fmt is None:
-        fmt = "%(asctime)s - %(name)32s: [%(levelname)8s] - %(message)s"
+        fmt = "%(asctime)s - %(name)16s: [%(levelname)s] %(message)s"
     if datefmt is None:
-        datefmt = "%y-%m-%d %H:%M:%S"
+        datefmt = "%y.%m.%d %H:%M:%S"
     formatter = logging.Formatter(fmt, datefmt)
     sh.setFormatter(formatter)
     logging.root.addHandler(sh)

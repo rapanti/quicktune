@@ -1,8 +1,6 @@
 import os
 
 import pandas as pd
-import torch
-import yaml
 
 from quicktune.finetune import finetune
 from quicktune.finetune.utils.build_parser import build_parser
@@ -105,12 +103,10 @@ def eval_finetune_conf(config: dict):
 
     parser = build_parser()
     args, _ = parser.parse_known_args(args)
-    args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
-    args.verbose = True if verbose else False
+    args.verbosity = 4 if verbose else 2
 
     try:
-        torch.cuda.empty_cache()
-        finetune.main(args, args_text)
+        finetune.main(args)
     except Exception as e:
         if verbose:
             print("Error:", e)
@@ -124,8 +120,8 @@ def eval_finetune_conf(config: dict):
 
     # read last line of txt
     summary = pd.read_csv(os.path.join(output_dir, "summary.csv"))
-    eval_top1 = summary["eval_top1"].iloc[-1]
-    eval_time = summary["eval_time"].iloc[-1]
+    eval_top1 = float(summary["eval_top1"].iloc[-1])
+    eval_time = float(summary["eval_time"].iloc[-1])
 
     result = QTunerResult(
         score=eval_top1,

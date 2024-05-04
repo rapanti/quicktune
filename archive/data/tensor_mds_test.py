@@ -5,7 +5,7 @@ import os
 from quicktune.data.tensormetadataset import TensorMetaDataset
 from quicktune.meta_train.cost_metatrain import cost_meta_train
 from quicktune.meta_train.perf_mt_test import perf_meta_train
-from quicktune.optimizers.quickoptimizer import QuickTuneOptimizer
+from quicktune.optimizers.quick import QuickOptimizer
 from quicktune.optimizers.surrogates import DyHPO
 from quicktune.tools.searchspace import SearchSpace
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     candidates = md.get_hp_candidates()
     num_hps = md.get_num_hyperparameters()
 
-    qto = QuickTuneOptimizer(
+    qto = QuickOptimizer(
         surrogate=dyhpo,
         hp_candidates=candidates,
         hp_names=hp_names,

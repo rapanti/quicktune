@@ -932,4 +932,11 @@ def build_parser():
         help="DELTA regularization. Default = 0.",
     )
 
+    group.add_argument(
+        "--verbosity",
+        type=int,
+        default=2,
+        help="verbosity level (0, 1, 2, 3). Default = 2.",
+    )
+
     return parser

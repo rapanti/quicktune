@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum
 
 from torchvision.datasets import ImageFolder
 
@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class QTaskStatus(Enum):
-    SUCCESS = auto()
-    ERROR = auto()
+    SUCCESS = 1
+    ERROR = 2
 
 
 @dataclass

@@ -32,7 +32,7 @@ class MetaLoader:
         )
 
     def get_batch(
-        self, mode: str = "train", metric: str = "eval_top1"
+        self, mode: str = "train", metric: str = "perf"
     ) -> dict[str, torch.Tensor]:
         """
         Get a batch of data from the dataset.

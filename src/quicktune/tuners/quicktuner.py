@@ -5,13 +5,12 @@ import shutil
 import time
 from typing import Callable, Optional
 
-from quicktune.factory import setup_quicktune
-from quicktune.optimizers.quickoptimizer import QuickTuneOptimizer
+from quicktune.optimizers.quick import QuickOptimizer
 from quicktune.utils.log_utils import add_log_to_file, set_logger_verbosity
-from quicktune.utils.qt_utils import get_dataset_metafeatures, QTunerResult
+from quicktune.utils.qt_utils import QTunerResult, get_dataset_metafeatures
 from quicktune.utils.utils import setup_outputdir
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("QuickTuner")
 
 
 class QuickTuner:
@@ -52,7 +51,7 @@ class QuickTuner:
 
     def __init__(
         self,
-        config: dict,
+        optimizer: QuickOptimizer,
         objective_function: Callable[[dict], QTunerResult],
         path: Optional[str] = None,
         verbosity: int = 4,
@@ -65,13 +64,7 @@ class QuickTuner:
 
         self._validate_init_kwargs(kwargs)
 
-        config.update(
-            verbosity=verbosity,
-            output_path=self.path,
-        )
-        print(f"config: {config}")
-
-        self.optimizer: QuickTuneOptimizer = setup_quicktune(config)
+        self.optimizer = optimizer
         self.objective_function = objective_function
 
     def _setup_log_to_file(self, log_to_file: bool, log_file_path: str) -> None:
@@ -114,6 +107,7 @@ class QuickTuner:
         if time_limit is None:
             time_limit = float("inf")
 
+        # if self.config.include_metafeatures:
         metafeat = get_dataset_metafeatures(data_path)
         self.optimizer.set_metafeatures(**metafeat)
 
@@ -127,7 +121,7 @@ class QuickTuner:
         output_dir = os.path.join(self.path, "temp")
         os.makedirs(self.path, exist_ok=True)
 
-        orig_configs = self.optimizer.sampled_configs
+        orig_configs = self.optimizer.sample_configs
 
         info_dict = {
             "all_configs": [dict(config) for config in orig_configs],
@@ -148,7 +142,6 @@ class QuickTuner:
 
             suggested_config = orig_configs[hp_index]
             ft_config = suggested_config.get_dictionary()
-            # print(f"ft_config: {ft_config}")
 
             func_config = {
                 "hp_config": ft_config,
@@ -190,7 +183,7 @@ class QuickTuner:
                 json.dump(perf_curves, f)
 
             done = (time.time() - start_time) > time_limit
-        
+
         return self
 
     def _validate_init_kwargs(self, kwargs: dict) -> None:

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import os
 import random
@@ -8,9 +6,10 @@ from typing import List, Optional, Tuple
 import pandas as pd
 import torch
 
-from quicktune.config_manager import ConfigManager
+from quicktune.configuration.space import MetaSpace
 
-NUM_HPS_TO_STD = [
+
+NUM_HP = [
     "bss_reg",
     "clip_grad",
     "cotuning_reg",
@@ -36,53 +35,44 @@ class MetaSet:
         self,
         root: str,
         version: str,
-        config_manager: ConfigManager,
+        space: MetaSpace,
         standardize_num_hps: bool = True,
-        model_args_first: bool = True,
         load_only_dataset_descriptors=True,
         return_tensor: bool = True,
         sort_hp: bool = True,
     ):
         self.root = root
         self.version = version
-        self.cm = config_manager
+        self.space = space
         self.standardize_num_hps = standardize_num_hps
-        self.model_args_first = model_args_first
         self.load_only_dataset_descriptors = load_only_dataset_descriptors
         self.return_tensor = return_tensor
         self.sort_hp = sort_hp
 
         self.path = os.path.join(self.root, self.version)
 
-        self.configs_df = self._load_configs()
-        self.curve_metrics = ["eval_top1", "time"]
+        self.configs_df = self._load_table()
+        self.curve_metrics = ["perf", "cost"]
         self.curves = self._load_curves()
-        self.metafeatures = self._load_metafeatures()
+        self.metafeatures = self._load_meta()
         self.datasets, self.ds_to_exp_ids = self._get_info()
 
-    def _load_configs(self) -> pd.DataFrame:
-        path = os.path.join(self.path, "args", "table.csv")
+    def _load_table(self) -> pd.DataFrame:
+        path = os.path.join(self.path, "table.csv")
         df = pd.read_csv(path, index_col=0)
 
         if self.standardize_num_hps:
-            # TODO: implement this
-            # NUM_ARGS_TO_STD = self.searchspace.get_num_args_to_std()
-            self.num_args_mean = df[NUM_HPS_TO_STD].mean()
-            self.num_args_std = df[NUM_HPS_TO_STD].std()
-            df[NUM_HPS_TO_STD] = (
-                df[NUM_HPS_TO_STD] - self.num_args_mean / self.num_args_std
-            )
+            self.num_hp_mean = df[NUM_HP].mean()
+            self.num_hp_std = df[NUM_HP].std()
+            df[NUM_HP] = df[NUM_HP] - self.num_hp_mean / self.num_hp_std
 
-        # if self.model_args_first:
-        #     model_args = [col for col in df.columns if col.startswith("cat:model")]
-        #     others = [col for col in df.columns if col not in model_args]
-        #     df = df[model_args + others]
         if self.sort_hp:
-            self.cm.sort_hp(True, True)
-            df = df.reindex(self.cm.get_one_hot_enc_names(), axis=1)
+            encoding = self.space.get_hot_encoding()
+
+            df = df.reindex(encoding, axis=1)
 
         df = df.astype(float)
-        df = df.fillna(-1)
+        df.fillna(-1, inplace=True)
         return df
 
     def _load_curves(self):
@@ -93,8 +83,8 @@ class MetaSet:
             curves[curve] = data
         return curves
 
-    def _load_metafeatures(self) -> dict:
-        path = os.path.join(self.path, "meta-features")
+    def _load_meta(self) -> dict:
+        path = os.path.join(self.path, "meta")
         if self.load_only_dataset_descriptors:
             path = os.path.join(path, "descriptors.json")
         else:
@@ -118,7 +108,7 @@ class MetaSet:
     def get_batch(
         self,
         batch_size: int,
-        metric: str = "eval_top1",
+        metric: str = "perf",
         dataset: Optional[str] = None,
     ) -> dict[str, torch.Tensor]:
         if dataset is None:
@@ -168,7 +158,7 @@ class MetaSet:
         return len(self.configs_df.columns)
 
     def get_cat_models(self) -> int:
-        models = [col for col in self.configs_df.columns if col.startswith("cat_model")]
+        models = [col for col in self.configs_df.columns if col.startswith("cat:model")]
         return len(models)
 
     def get_num_datasets(self) -> int:
@@ -180,15 +170,19 @@ class MetaSet:
     def get_hp_candidates(self):
         return self.configs_df.values
 
-
-if __name__ == "__main__":
-    config = {
-        "meta-dataset": {
-            "root": "/home/evilknivl/projects/edit-qt-mds/mtlbm-metadataset",
-            "version": "mini",
-            "standardize_num_args": True,
-            "model_args_first": True,
-            "load_only_dataset_descriptors": True,
+    def save_standardization(self, path):
+        norm = {
+            "mean": self.num_hp_mean.to_dict(),
+            "std": self.num_hp_std.to_dict(),
         }
-    }
-    md = MetaSet(**config["meta-dataset"])
+        output_path = os.path.join(path, "standardization.json")
+        with open(output_path, "w") as writer:
+            writer.write(json.dumps(norm, indent=2, sort_keys=True))
+
+    def save_standardization_csv(self, path):
+        norm = {
+            "mean": self.num_hp_mean.to_dict(),
+            "std": self.num_hp_std.to_dict(),
+        }
+        output_path = os.path.join(path, "standardization.csv")
+        pd.DataFrame(norm).to_csv(output_path)

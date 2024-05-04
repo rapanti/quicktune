@@ -13,7 +13,7 @@ class MetaTrainer:
     batch_size: int = 32
     lr: float = 1e-4
     train_iter: int = 10000
-    val_iter: int = 10
+    val_iter: int = 50
     val_freq: int = 20
     use_scheduler: bool = False
     use_cuda: bool = True
@@ -89,13 +89,10 @@ class PerfMetaTrainer(MetaTrainer):
         min_eval_val = float("inf")
         for i in range(self.train_iter):
             batch = loader.get_batch()
-            config = batch["config"].to(device)
-            budget = batch["budget"].to(device)
-            curve = batch["curve"].to(device)
-            target = batch["target"].to(device)
-            metafeat = batch["metafeat"].to(device)
+            for key, item in batch.items():
+                batch[key] = item.to(device)
 
-            loss = model.train_step(config, budget, curve, target, metafeat)
+            loss = model(**batch)
 
             optimizer.zero_grad()
             loss.backward()
@@ -224,7 +221,7 @@ class CostMetaTrainer(MetaTrainer):
         val_error = 0
         criterion = torch.nn.MSELoss()
         for _ in range(self.val_iter):
-            batch = loader.get_batch(mode="val", metric="time")
+            batch = loader.get_batch(mode="val", metric="cost")
             for key, item in batch.items():
                 batch[key] = item.to(device)
             target = batch.pop("target")
