@@ -49,8 +49,7 @@ class QuickOptimizer:
         The path to save the output files.
     """
 
-    init_config_nr: int = 1
-    init_budget: int = 1
+    init_conf_nr: int = 1
 
     def __init__(
         self,
@@ -86,10 +85,10 @@ class QuickOptimizer:
         ).values
 
         self.max_budget = max_budget
-        self.fantasize_steps = fantasize_steps
+        self.fantasize_stepsize = fantasize_steps
 
-        self.init_rand_idx = 0
-        self.init_conf_indices = random.sample(range(num_configs), self.init_config_nr)
+        self.init_conf_idx = 0
+        self.init_conf_indices = random.sample(range(num_configs), self.init_conf_nr)
 
         self.incumbent = -1
         self.incumbent_score = float("-inf")
@@ -189,7 +188,7 @@ class QuickOptimizer:
             metafeat=metafeat,
         )
 
-        return data
+        return data  # type: ignore
 
     def _fit_surrogate(self):
         """
@@ -215,7 +214,7 @@ class QuickOptimizer:
         config, budget, curve = self._get_candidate_configs()
 
         # add fantasize steps to the budget
-        _budget = torch.tensor(budget, dtype=torch.float) + self.fantasize_steps
+        _budget = torch.tensor(budget, dtype=torch.float) + self.fantasize_stepsize
         # scale budget to [0, 1]
         _budget /= self.max_budget
         config = torch.tensor(config, dtype=torch.float)
@@ -255,15 +254,15 @@ class QuickOptimizer:
             The budget of the hyperparameter configuration.
         """
         # check if we still have random configurations to evaluate
-        if self.init_rand_idx < len(self.init_conf_indices):
+        if self.init_conf_idx < self.init_conf_nr:
             logger.info(
-                "Not enough configurations to build a model. "
+                "Initialization phase not over yet. "
                 "Returning randomly sampled configuration"
             )
 
-            index = self.init_conf_indices[self.init_rand_idx]
-            budget = self.init_budget
-            self.init_rand_idx += 1
+            index = self.init_conf_idx
+            budget = self.fantasize_stepsize
+            self.init_conf_idx += 1
 
             return index, budget
 
@@ -280,11 +279,11 @@ class QuickOptimizer:
             # decide for what budget we will evaluate the most promising hyperparameter configuration next.
             if index in self.results:
                 budget = self.results[index][-1]
-                budget += self.fantasize_steps
-                # if fantasize_step is bigger than 1
+                budget += self.fantasize_stepsize
+                # if fantasize_stepsize is bigger than 1
                 budget = min(budget, self.max_budget)
             else:
-                budget = self.fantasize_steps
+                budget = self.fantasize_stepsize
 
         return index, budget
 
@@ -315,10 +314,10 @@ class QuickOptimizer:
         score = result.score
         if result.status == QTaskStatus.ERROR:
             self.finished_configs.add(index)
-            return
+            score = 0.0
 
         # if score >= (1 - threshold)
-        # maybe accept config as finished before reaching max performance and do not evaluate further
+        # maybe accept config as finished before reaching max performance ??? TODO
         if score >= 1 or budget >= self.max_budget:
             self.finished_configs.add(index)
 
@@ -342,7 +341,7 @@ class QuickOptimizer:
         train_time = 0
 
         # initialization phase over. Now we can sample from the model.
-        if self.init_rand_idx >= len(self.init_conf_indices):
+        if self.init_conf_idx >= len(self.init_conf_indices):
             train_time_start = time.time()
 
             # if self.no_improvement_patience == self.no_improvement_threshold:

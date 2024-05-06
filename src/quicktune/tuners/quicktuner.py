@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import shutil
 import time
 from typing import Callable, Optional
 
@@ -52,7 +51,7 @@ class QuickTuner:
     def __init__(
         self,
         optimizer: QuickOptimizer,
-        objective_function: Callable[[dict], QTunerResult],
+        objective_function: Callable[..., QTunerResult],
         path: Optional[str] = None,
         verbosity: int = 4,
         **kwargs,
@@ -60,6 +59,7 @@ class QuickTuner:
         self.verbosity = verbosity
         set_logger_verbosity(verbosity, logger)
         self.path = setup_outputdir(path)
+        self.exp_dir = os.path.join(self.path, "exp")
         self._setup_log_to_file(self._log_to_file, self._log_file_path)
 
         self._validate_init_kwargs(kwargs)
@@ -111,78 +111,58 @@ class QuickTuner:
         metafeat = get_dataset_metafeatures(data_path)
         self.optimizer.set_metafeatures(**metafeat)
 
-        task_info = {
+        data_info = {
             "train-split": train_split,
             "val-split": val_split,
             "num_classes": metafeat["num_classes"],
         }
 
-        perf_curves: dict = {"all_perf": [], "all_cost": []}
-        output_dir = os.path.join(self.path, "temp")
-        os.makedirs(self.path, exist_ok=True)
-
         orig_configs = self.optimizer.sample_configs
+        configs = {i: config.get_dictionary() for i, config in enumerate(orig_configs)}
+        with open(os.path.join(self.path, "configs.json"), "w") as f:
+            json.dump(configs, f, indent=2, sort_keys=True)
 
-        info_dict = {
-            "all_configs": [dict(config) for config in orig_configs],
-            "observed_ids": [],
-            "query_config": [],
-            "status": [],
-        }
+        history: dict = {"score": [], "cost": [], "configs": dict()}
 
-        incumbent = 0
         start_time = time.time()
-        done = False
-        while not done:
-            hp_index, budget = self.optimizer.suggest()
-            logger.info(f"hp_index: {hp_index}, budget: {budget}")
+        while True:
+            config_id, budget = self.optimizer.suggest()
+            logger.info(f"Optimizer suggests: {config_id} with budget {budget}")
 
-            if str(hp_index) not in perf_curves.keys():
-                perf_curves[str(hp_index)] = []
+            config = self.optimizer.sample_configs[config_id].get_dictionary()
 
-            suggested_config = orig_configs[hp_index]
-            ft_config = suggested_config.get_dictionary()
+            result = self.objective_function(
+                budget=budget,
+                config=config,
+                config_id=config_id,
+                data_path=data_path,
+                data_info=data_info,
+                output=self.exp_dir,
+                verbosity=self.verbosity,
+            )
 
-            func_config = {
-                "hp_config": ft_config,
-                "output": output_dir,
-                "experiment": str(hp_index),
-                "data_path": data_path,
-                "budget": budget,
-                "task_info": task_info,
-            }
-            result = self.objective_function(func_config)
-            print(result)
+            logger.info("Evaluation complete.")
+            logger.info(f"Score: {result.score:.3f}% | Time: {result.time:.1f}s")
 
+            self.optimizer.observe(config_id, budget, result)
+
+            # save results
             score = result.score
-            status = str(result.status)
-            self.optimizer.observe(hp_index, budget, result)
+            if config_id not in history["configs"].keys():
+                history["configs"][config_id] = list()
+            history["configs"][config_id].append(score)
+            history["score"].append(score)
+            history["cost"].append(time.time() - start_time)
+            # save curves
+            with open(os.path.join(self.path, "history.json"), "w") as f:
+                logger.info(f"Saving history to {self.path}")
+                json.dump(history, f, indent=2, sort_keys=True)
 
-            perf_curves[str(hp_index)].append(score)
-            perf_curves["all_perf"].append(score)
-            perf_curves["all_cost"].append(time.time() - start_time)
-            info_dict["observed_ids"].append(int(hp_index))
-            info_dict["query_config"].append(str(ft_config))
-            info_dict["status"].append(status)
+            if (time.time() - start_time) > time_limit:
+                logger.info("Time limit reached.")
+                break
 
-            if score > incumbent:
-                incumbent = score
-                # save best config
-                # move file to output folder
-                shutil.copy(
-                    os.path.join(output_dir, str(hp_index), "last.pth.tar"),
-                    os.path.join(self.path, "best_model.pt"),
-                )
-
-            # save info dict
-            with open(os.path.join(self.path, "info_dict.json"), "w") as f:
-                json.dump(info_dict, f)
-
-            # save curves in output folder
-            with open(os.path.join(self.path, "perf_curves.json"), "w") as f:
-                json.dump(perf_curves, f)
-
-            done = (time.time() - start_time) > time_limit
+        logger.info("QuickTuner fit complete.")
 
         return self
 

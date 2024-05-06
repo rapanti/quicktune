@@ -61,6 +61,7 @@ from timm.scheduler import create_scheduler_v2, scheduler_kwargs
 from timm.utils import ApexScaler, NativeScaler
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
 
+from quicktune.finetune.utils.custom_timm import create_loader
 from quicktune.finetune.utils.finetuning_stategies import (
     BatchSpectralShrinkage,
     BehavioralRegularization,
@@ -78,8 +79,6 @@ from quicktune.finetune.utils.utils import (
     prepare_model_for_finetuning,
 )
 from quicktune.utils.log_utils import set_logger_verbosity
-
-from .utils.custom_timm import create_loader
 
 try:
     from apex import amp  # type: ignore
@@ -625,8 +624,6 @@ def main(args: Namespace):
             decreasing=decreasing,
             max_history=args.checkpoint_hist,
         )
-        # with open(os.path.join(output_dir, "args.yaml"), "w") as f:
-        #     f.write(args.as_markdown())
 
     # setup learning rate schedule and starting epoch
     updates_per_epoch = len(loader_train)
@@ -697,7 +694,7 @@ def main(args: Namespace):
                     return_source_output=return_source_output,
                     change_head=False,
                 )
-                # if device_count>1: model = nn.DataParallel(model).to(device)
+
             train_metrics = train_one_epoch(
                 epoch=epoch,
                 model=model,
@@ -1107,3 +1104,12 @@ def validate(
     )
 
     return metrics
+
+
+if __name__ == "__main__":
+    from quicktune.finetune.utils.build_parser import build_parser
+
+    parser = build_parser()
+    args = parser.parse_args()
+
+    main(args)

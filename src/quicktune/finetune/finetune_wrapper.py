@@ -35,8 +35,6 @@ bool_hp_list = [
 ]
 
 cond_hp_list = [
-    "auto_augment",
-    "data_augmentation",
     "layer_decay",
     "sched",
 ]
@@ -45,7 +43,7 @@ static_args = [
     "--pretrained",
     "--checkpoint_hist", "1",
     "--epochs", "50",
-    "--workers", "8",
+    "--workers", "0",
 ]
 
 task_args = [
@@ -55,45 +53,61 @@ task_args = [
 ]
 
 
-def eval_finetune_conf(config: dict):
-
-    data_path = config["data_path"]
-    budget = config["budget"]
-    task_info = config["task_info"]
-    experiment = config["experiment"]
-    output = config["output"]
-    verbose = config.get("verbose", False)
-    hp_config: dict = config["hp_config"]
-    hp_config.pop("amp", None)
+def eval_finetune_conf(
+    config: dict,
+    budget: int,
+    config_id: int,
+    data_path: str,
+    data_info: dict,
+    output: str,
+    verbosity: int = 2,
+):
+    experiment = str(config_id)
+    config.pop("amp", None)
 
     args = [data_path]
 
+    # REGULAR HPS/ARGS
     for hp in hp_list:
-        if hp in hp_config:
-            args += [f"--{hp}", str(hp_config[hp])]
+        if hp in config:
+            args += [f"--{hp}", str(config[hp])]
 
+    # BOOLEAN ARGS
     for hp in bool_hp_list:
-        enabled = hp_config.get(hp, False)
+        enabled = config.get(hp, False)
         if enabled:
             args += [f"--{hp}"]
 
+    # CONDITIONAL ARGS
     for hp in cond_hp_list:
-        option = hp_config.get(hp, "None")
+        option = config.get(hp, "None")
         if option != "None":
             args += [f"--{hp}", str(option)]
+    
+    # DATA AUGMENTATIONS
+    data_augmentation = config.get("data_augmentation", "None")
+    if data_augmentation != "None":
+        if data_augmentation == "auto_augment":
+            vers = config.get("auto_augment")
+            args += ["--auto_augment", str(vers)]
+        else:
+            args += [f"--{data_augmentation}"]
 
-    opt_betas = hp_config.get("opt_betas", "None")
+    # OPTIMIZER BETAS
+    opt_betas = config.get("opt_betas", "None")
     if opt_betas != "None":
         opt_betas = opt_betas.strip("[]").split(",")
         args += ["--opt_betas", *opt_betas]
 
+    # TASK SPECIFIC ARGS
     for arg in task_args:
-        args += [f"--{arg}", str(task_info[arg])]
+        args += [f"--{arg}", str(data_info[arg])]
 
     args += ["--epochs_step", str(budget)]
     args += ["--experiment", experiment]
     args += ["--output", output]
 
+    # OUTPUT DIRECTORY
     output_dir = os.path.join(output, experiment)
     resume_path = os.path.join(output_dir, "last.pth.tar")
     if os.path.exists(resume_path):
@@ -103,13 +117,12 @@ def eval_finetune_conf(config: dict):
 
     parser = build_parser()
     args, _ = parser.parse_known_args(args)
-    args.verbosity = 4 if verbose else 2
+    args.verbosity = verbosity
 
     try:
         finetune.main(args)
     except Exception as e:
-        if verbose:
-            print("Error:", e)
+        print("Error:", e)
         result = QTunerResult(
             score=-1,
             time=-1,
@@ -121,11 +134,13 @@ def eval_finetune_conf(config: dict):
     # read last line of txt
     summary = pd.read_csv(os.path.join(output_dir, "summary.csv"))
     eval_top1 = float(summary["eval_top1"].iloc[-1])
+    train_time = float(summary["train_time"].iloc[-1])
     eval_time = float(summary["eval_time"].iloc[-1])
-
+    time = train_time + eval_time
+    
     result = QTunerResult(
         score=eval_top1,
-        time=eval_time,
+        time=time,
         status=QTaskStatus.SUCCESS,
     )
 

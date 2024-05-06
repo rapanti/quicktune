@@ -1,26 +1,18 @@
 import logging
-import os
 import random
-import time
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
-from scipy.stats import norm
 
 from quicktune.configuration.manager import ConfigManager
-from quicktune.data.metaset import MetaSet
 from quicktune.utils.log_utils import set_logger_verbosity
 from quicktune.utils.qt_utils import QTaskStatus, QTunerResult
-
-from quicktune.optimizers.surrogates.surrogate import Surrogate
 
 logger = logging.getLogger("QuickOptimizer")
 
 
 class RandomOptimizer:
-
-
     def __init__(
         self,
         config_manager: ConfigManager,
@@ -75,18 +67,19 @@ class RandomOptimizer:
         # check if we still have random configurations to evaluate
         if len(self.finished_configs) == len(self.sample_configs):
             return -1, -1
-        
+
         # get the index of the next configuration to evaluate
         while True:
             index = random.choice(range(self.num_configs))
             if index not in self.finished_configs:
                 break
         
+        # get the budget of the next configuration to evaluate    
         if index in self.results:
             budget = max(self.results[index]) + self.fantasize_steps
         else:
             budget = self.fantasize_steps
-            
+
         return index, budget
 
     def observe(
@@ -123,8 +116,6 @@ class RandomOptimizer:
         if score >= 1 or budget >= self.max_budget:
             self.finished_configs.add(index)
 
-        observe_time_start = time.time()
-
         if index in self.results:
             self.results[index].append(budget)
             self.scores[index].append(score)
@@ -139,21 +130,4 @@ class RandomOptimizer:
         else:
             self.no_improvement_patience += 1
 
-        observe_time_end = time.time()
-        train_time = 0
-
-        # initialization phase over. Now we can sample from the model.
-        if self.init_rand_idx >= len(self.init_conf_indices):
-            train_time_start = time.time()
-
-            # if self.no_improvement_patience == self.no_improvement_threshold:
-            #     self.surrogate.restart = True  # type: ignore
-
-            self._fit_surrogate()
-
-            train_time = time.time() - train_time_start
-
-        observe_time = observe_time_end - observe_time_start
-        overhead_time = observe_time + self.suggest_time_duration + train_time
-
-        return overhead_time
+        return 1

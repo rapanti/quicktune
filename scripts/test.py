@@ -1,10 +1,11 @@
 from ConfigSpace.read_and_write import json as cs_json
 
+from quicktune import QuickTuner
 from quicktune.data.metaset import MetaSet
 from quicktune.optimizers.quick import QuickOptimizer
 from quicktune.optimizers.surrogates.dyhpo import DyHPO
-from quicktune.tuners import QuickTuner
-from quicktune.finetune.finetune_func import eval_finetune_conf
+# from quicktune.tuners import QuickTuner
+from quicktune.finetune.finetune_wrapper import eval_finetune_conf
 from quicktune.configuration.manager import ConfigManager
 from quicktune.configuration.space import MetaSpace
 

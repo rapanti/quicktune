@@ -1,17 +1,15 @@
-# QuickTune (WIP)
-## Quick-Tune: Quickly Learning Which Pre Trained Model to Fine Tune and How [ICLR2024](https://openreview.net/forum?id=tqh1zdXIra)
+# QuickTuneTool (WIP)
 
-This repo contains the code for running experiments with QuickTune
-
-![Architecture](figures/figure.svg)
+This repo is based on the QuickTune paper
+"**Quick-Tune: Quickly Learning Which Pre Trained Model to Fine Tune and How**" [ICLR2024](https://openreview.net/forum?id=tqh1zdXIra)
 
 
-## Run QuickTune
+## Use QuickTuneTool
 
 ### Prepare Environment
-To install QuickTune, you can simply use `pip`:
+To install the QuickTuneTool, you can simply use `pip`:
 ```bash
-pip install quicktune
+pip install quicktunetool
 ```
 
 
@@ -23,17 +21,31 @@ tar -xvzf imagenette2-320.tgz
 ```
 
 ```python
-from quicktune import QuickTuner, get_qt_config, setup_quicktune
-from quicktune.finetune.utils.eval_autofinetune import eval_finetune_conf
+from quicktune import QuickTuner, from_pretrained
+from quicktune.finetune.finetune_wrapper import eval_finetune_conf
 
-config = get_qt_config("/work/dlclarge2/rapanti-quicktune/datasets/imagenettest10-320", 1000)
-ss, md, optimizer = setup_quicktune(config)
-QuickTuner(config, optimizer, ss, md, eval_finetune_conf).run()
+if __name__ == "__main__":
+    data_path = "path/to/dataset"
+    time_limit = 3600
+
+    # load our pretrained optimizer, the 'mini'-version should be just fine for small dataset
+    optimizer = from_pretrained("*mtlbm/mini", num_configs=512)
+    qt = QuickTuner(optimizer, eval_finetune_conf)
+    qt.fit(data_path, time_limit)
 ```
 
-Not implemented
-```python
-from quicktune import QT_Config, TASK
-tuner = QT_Config("path/to/dataset", task=TASK.MTLBM, budget=42, objective_func=...)
-tuner.run()
+
+## Citation
+
+You can cite our work as follows:
+
+```bib
+@inproceedings{
+arango2024quicktune,
+title={Quick-Tune: Quickly Learning Which Pretrained Model to Finetune and How},
+author={Sebastian Pineda Arango and Fabio Ferreira and Arlind Kadra and Frank Hutter and Josif Grabocka},
+booktitle={The Twelfth International Conference on Learning Representations},
+year={2024},
+url={https://openreview.net/forum?id=tqh1zdXIra}
+}
 ```
